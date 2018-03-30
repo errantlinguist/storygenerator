@@ -19,7 +19,7 @@ def __create_argparser() -> argparse.ArgumentParser:
 	result = argparse.ArgumentParser(
 		description="Creates a language model for generating prose.")
 	result.add_argument("infiles", metavar="FILE", nargs='+',
-						help="The cross-validation results files to process.")
+						help="The text files to process.")
 	result.add_argument("-e", "--encoding", metavar="CODEC", default="utf-8",
 						help="The input file encoding.")
 	result.add_argument("-s", "--random-seed", dest="random_seed", metavar="SEED", type=int, default=7,
