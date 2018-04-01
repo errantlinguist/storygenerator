@@ -9,6 +9,13 @@ __license__ = "Apache License, Version 2.0"
 from typing import Optional, Sequence
 
 
+class Book(object):
+	def __init__(self, ordinality: int, title: str, chaps: Sequence["Chapter"]):
+		self.ordinality = ordinality
+		self.title = title
+		self.chaps = chaps
+
+
 class Chapter(object):
 
 	def __init__(self, part: int, seq: Optional[int] = None, title: Optional[str] = None,
@@ -42,6 +49,7 @@ class Chapter(object):
 
 	def __repr__(self):
 		fields = (
-		"{part=", str(self.part), ", seq=", str(self.seq), ", title=", str(self.title), ", pars=", str(self.pars), "}")
+			"{part=", str(self.part), ", seq=", str(self.seq), ", title=", str(self.title), ", pars=", str(self.pars),
+			"}")
 		field_repr = "".join(fields)
 		return self.__class__.__name__ + field_repr
