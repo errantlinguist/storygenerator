@@ -7,7 +7,7 @@ __copyright__ = "Copyright (C) 2018 Todd Shore"
 __license__ = "Apache License, Version 2.0"
 
 import re
-from typing import Callable, Optional
+from typing import Callable, Optional, Tuple
 
 from . import Chapter
 
@@ -18,7 +18,7 @@ ORDERED_CHAPTER_PATTERN = re.compile("^(\w+)\s+(\d+)")
 
 class TextChapterReader(object):
 
-	def parse_chapter_header(self, line):
+	def parse_chapter_header(self, line: str) -> Tuple[int, int, str]:
 
 		sep_idx = line.find(":")
 		if sep_idx > 0:
@@ -57,7 +57,7 @@ class TextChapterReader(object):
 					chap_end_m = CHAPTER_DELIM_PATTERN.match(line)
 					if chap_end_m:
 						result.append(chap)
-						chap = Chapter(None)
+						chap = Chapter(-2)
 						parsed_chap_header = False
 					elif not parsed_chap_header:
 						part, seq, chap_title = self.parse_chapter_header(line)
