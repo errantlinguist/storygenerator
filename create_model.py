@@ -11,8 +11,9 @@ __license__ = "Apache License, Version 2.0"
 import argparse
 import os
 import random
+import re
 import sys
-from typing import Callable, Iterable, Iterator
+from typing import Callable, Iterable, Iterator, Tuple
 
 import magic
 import numpy as np
@@ -20,6 +21,7 @@ import numpy as np
 from storygenerator.io import TextChapterReader
 
 INPUT_FILE_MIMETYPE = "text/plain"
+INPUT_FILENAME_PATTERN = re.compile("(\d+)\s+([^\.]+)\..+")
 
 
 class MimetypeFileWalker(object):
@@ -41,6 +43,17 @@ class MimetypeFileWalker(object):
 				mimetype = self.__mime.from_file(inpath)
 				if self.mimetype_matcher(mimetype):
 					yield inpath
+
+
+def parse_book_filename(inpath: str) -> Tuple[int, str]:
+	filename = os.path.basename(inpath)
+	m = INPUT_FILENAME_PATTERN.match(filename)
+	if m:
+		ordinality = int(m.group(1))
+		title = m.group(2)
+	else:
+		raise ValueError("Could not parse filename for path \"{}\".".format(inpath))
+	return ordinality, title
 
 
 def __create_argparser() -> argparse.ArgumentParser:
@@ -70,8 +83,10 @@ def __main(args):
 
 	for infile in infiles:
 		print("Reading \"{}\".".format(infile), file=sys.stderr)
+		book_ordinality, book_title = parse_book_filename(infile)
 		chaps = reader(infile)
-
+		print("Read {} chapter(s) for book {}, titled \"{}\".".format(len(chaps), book_ordinality, book_title),
+			  file=sys.stderr)
 
 
 if __name__ == "__main__":
