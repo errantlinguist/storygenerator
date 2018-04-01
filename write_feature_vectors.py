@@ -129,8 +129,6 @@ def __create_argparser() -> argparse.ArgumentParser:
 		description="Creates a language model for generating prose.")
 	result.add_argument("inpaths", metavar="FILE", nargs='+',
 						help="The text file(s) and/or directory path(s) to process.")
-	result.add_argument("-e", "--encoding", metavar="CODEC", default="utf-8",
-						help="The input file encoding.")
 	result.add_argument("-o", "--outdir", metavar="DIR", required=True,
 						help="The directory to write the output files to.")
 	return result
