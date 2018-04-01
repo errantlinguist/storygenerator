@@ -18,7 +18,7 @@ ORDERED_CHAPTER_PATTERN = re.compile("^(\w+)\s+(\d+)")
 
 class TextChapterReader(object):
 
-	def parse_chapter_header(self, line: str) -> Tuple[int, int, str]:
+	def parse_chapter_header(self, line: str) -> Tuple[int, Optional[int], str]:
 
 		sep_idx = line.find(":")
 		if sep_idx > 0:
