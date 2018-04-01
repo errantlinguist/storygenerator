@@ -18,28 +18,6 @@ ORDERED_CHAPTER_PATTERN = re.compile("^(\w+)\s+(\d+)")
 
 class TextChapterReader(object):
 
-	def parse_chapter_header(self, line: str) -> Tuple[int, Optional[int], str]:
-
-		sep_idx = line.find(":")
-		if sep_idx > 0:
-			chap_seq = line[:sep_idx].strip()
-			chap_title = line[sep_idx + 1:].strip()
-		else:
-			chap_seq = line
-			chap_title = ""
-
-		ordered_chap_m = ORDERED_CHAPTER_PATTERN.match(chap_seq)
-		if ordered_chap_m:
-			part_desc = ordered_chap_m.group(1)
-			part = self.part_name_ordinality_mapper(part_desc)
-			seq = int(ordered_chap_m.group(2))
-		else:
-			part_desc = chap_seq
-			part = self.part_name_ordinality_mapper(part_desc)
-			seq = None
-
-		return part, seq, chap_title
-
 	def __init__(self, part_name_ordinality_mapper: Optional[Callable[[str], int]] = None):
 		self.part_name_ordinality_mapper = part_name_ordinality_mapper if part_name_ordinality_mapper is not None else lambda \
 				part_desc: DEFAULT_PART_NAME_ORDINALITIES[part_desc]
@@ -74,3 +52,25 @@ class TextChapterReader(object):
 				result.append(chap)
 
 		return result
+
+	def parse_chapter_header(self, line: str) -> Tuple[int, Optional[int], str]:
+
+		sep_idx = line.find(":")
+		if sep_idx > 0:
+			chap_seq = line[:sep_idx].strip()
+			chap_title = line[sep_idx + 1:].strip()
+		else:
+			chap_seq = line
+			chap_title = ""
+
+		ordered_chap_m = ORDERED_CHAPTER_PATTERN.match(chap_seq)
+		if ordered_chap_m:
+			part_desc = ordered_chap_m.group(1)
+			part = self.part_name_ordinality_mapper(part_desc)
+			seq = int(ordered_chap_m.group(2))
+		else:
+			part_desc = chap_seq
+			part = self.part_name_ordinality_mapper(part_desc)
+			seq = None
+
+		return part, seq, chap_title
