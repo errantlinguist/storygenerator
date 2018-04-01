@@ -6,18 +6,22 @@ __author__ = "Todd Shore <errantlinguist+github@gmail.com>"
 __copyright__ = "Copyright (C) 2018 Todd Shore"
 __license__ = "Apache License, Version 2.0"
 
-import re
 from typing import Optional, Sequence
-
-__DIGITS_PATTERN = re.compile('(\d+)')
 
 
 class Chapter(object):
 
-	def __init__(self, seq: Optional[str] = None, title: Optional[str] = None,
+	def __init__(self, part: int, seq: Optional[int] = None, title: Optional[str] = None,
 				 pars: Optional[Sequence[str]] = None):
+		"""
+		:param part: -1 for prologue, 0 for "normal" chapters and 1 for epilogue. Higher values can be used for appendices, etc.
+		:param seq: The chapter number.
+		:param title: The chapter title.
+		:param pars A sequence of strings, each representing a single paragraph.
+		"""
+		self.part = part
 		self.seq = seq
-		self.title = title
+		self.title = title if title is not None else ""
 		self.pars = [] if pars is None else pars
 
 	@property
@@ -37,6 +41,7 @@ class Chapter(object):
 		return not (self == other)
 
 	def __repr__(self):
-		fields = ("{seq=", str(self.seq), ", title=", str(self.title), ", pars=", str(self.pars), "}")
+		fields = (
+		"{part=", str(self.part), ", seq=", str(self.seq), ", title=", str(self.title), ", pars=", str(self.pars), "}")
 		field_repr = "".join(fields)
 		return self.__class__.__name__ + field_repr
