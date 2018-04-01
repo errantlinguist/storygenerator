@@ -9,7 +9,7 @@ __license__ = "Apache License, Version 2.0"
 import csv
 import os
 import re
-from typing import Callable, Iterable, Iterator, Optional, Sequence, Tuple
+from typing import Callable, Iterable, Iterator, List, Optional, Sequence, Tuple
 
 import magic
 import numpy as np
@@ -23,6 +23,7 @@ ORDERED_CHAPTER_PATTERN = re.compile("^(\w+)\s+(\d+)")
 INPUT_FILENAME_PATTERN = re.compile("(\d+)\s+([^.]+)\..+")
 OUTPUT_FEATURE_DIRNAME = "features"
 OUTPUT_VOCAB_FILENAME = "vocab.tsv"
+VOCAB_FILE_CSV_DIALECT = csv.excel_tab
 
 
 class FeatureExtractor(object):
@@ -157,9 +158,15 @@ def parse_book_filename(inpath: str) -> Tuple[int, str]:
 	return ordinality, title
 
 
+def read_vocab(infile: str) -> List[str]:
+	with open(infile, 'r') as inf:
+		reader = csv.reader(inf, dialect=VOCAB_FILE_CSV_DIALECT)
+		return next(reader)
+
+
 def write_vocab(vocab: Iterable[str], outdir: str):
 	vocab_outfile_path = os.path.join(outdir, OUTPUT_VOCAB_FILENAME)
 	print("Writing vocab to \"{}\".".format(vocab_outfile_path))
 	with open(vocab_outfile_path, 'w') as vocab_outf:
-		vocab_writer = csv.writer(vocab_outf, dialect=csv.excel_tab)
+		vocab_writer = csv.writer(vocab_outf, dialect=VOCAB_FILE_CSV_DIALECT)
 		vocab_writer.writerow(vocab)
