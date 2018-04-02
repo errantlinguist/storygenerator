@@ -28,11 +28,16 @@ VOCAB_FILE_CSV_DIALECT = csv.excel_tab
 
 class FeatureExtractor(object):
 
+	@staticmethod
+	def feature_count(vocab: Sequence[str]):
+		# Includes features representing possible actual characters as well as features representing ends of paragraphs, chapters and books.
+		return len(vocab) + 3
+
 	def __init__(self, vocab: Sequence[str]):
 		self.__vocab = vocab
 		self.__vocab_idxs = dict((char, idx) for idx, char in enumerate(vocab))
 		# Includes features representing possible actual characters as well as features representing ends of paragraphs, chapters and books.
-		self.__feature_count = len(self.__vocab) + 3
+		self.__feature_count = self.feature_count(self.__vocab)
 		self.__par_end_feature_idx = len(self.__vocab)
 		self.__chapter_end_feature_idx = len(self.__vocab) + 1
 		self.__book_end_feature_idx = len(self.__vocab) + 2
