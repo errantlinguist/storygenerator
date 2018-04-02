@@ -18,8 +18,7 @@ from typing import Iterator, Sequence, Tuple
 import keras.preprocessing.sequence
 import numpy as np
 from keras.callbacks import ModelCheckpoint
-from keras.layers import Dense, Activation
-from keras.layers import LSTM
+from keras.layers import Activation, Dense, LSTM, TimeDistributed
 from keras.models import Sequential
 from keras.optimizers import RMSprop
 
@@ -78,8 +77,8 @@ class NPZFileWalker(object):
 
 def create_model(maxlen: int, feature_count: int) -> Sequential:
 	result = Sequential()
-	result.add(LSTM(128, input_shape=(maxlen, feature_count)))
-	result.add(Dense(feature_count))
+	result.add(LSTM(128, input_shape=(maxlen, feature_count), return_sequences=True))
+	result.add(TimeDistributed(Dense(feature_count)))
 	result.add(Activation('softmax'))
 	optimizer = RMSprop(lr=0.01)
 	result.compile(loss='categorical_crossentropy', optimizer=optimizer)
