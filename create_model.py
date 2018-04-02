@@ -13,221 +13,147 @@ import os
 import random
 import re
 import sys
-from typing import Callable, Dict, Iterable, Iterator, Sequence, Tuple
-
-import magic
-import numpy as np
-from keras.callbacks import LambdaCallback, ModelCheckpoint
-from keras.layers import Dense, Activation
-from keras.layers import LSTM
-from keras.models import Model, Sequential, load_model
-from keras.optimizers import RMSprop
+from typing import Iterator, Sequence, Tuple
 
 import keras.preprocessing.sequence
-from keras.layers.wrappers import TimeDistributed
-from sklearn.externals import joblib
-from sklearn.preprocessing import LabelEncoder
-from sklearn.preprocessing import OneHotEncoder
+import numpy as np
+from keras.callbacks import ModelCheckpoint
+from keras.layers import Dense, Activation
+from keras.layers import LSTM
+from keras.models import Sequential
+from keras.optimizers import RMSprop
 
-from nltk.tokenize import sent_tokenize
+from storygenerator.io import OUTPUT_FEATURE_DIRNAME, OUTPUT_VOCAB_FILENAME, FeatureExtractor, read_vocab
 
-from storygenerator import Chapter
-from storygenerator.io import TextChapterReader
-
-INPUT_FILE_MIMETYPE = "text/plain"
-INPUT_FILENAME_PATTERN = re.compile("(\d+)\s+([^\.]+)\..+")
+MODEL_CHECKPOINT_DIRNAME = "models"
 
 
-class Book(object):
-	def __init__(self, ordinality: int, title: str, chaps: Sequence[Chapter]):
-		self.ordinality = ordinality
-		self.title = title
-		self.chaps = chaps
+class FileLoadingDataGenerator(keras.utils.Sequence):
 
-
-class EpochEndHook(object):
-	def __init__(self, model: Sequential, text: str, chars: Sequence[str], char_indices: Dict[str, int],
-				 indices_char: Dict[int, str], maxlen: int):
-		self.model = model
-		self.text = text
-		self.chars = chars
-		self.char_indices = char_indices
-		self.indices_char = indices_char
+	def __init__(self, infile_paths: Sequence[str], maxlen: int):
+		self.infile_paths = infile_paths
 		self.maxlen = maxlen
 
-	def __call__(self, epoch, logs):
-		# Function invoked at end of each epoch. Prints generated text.
-		print()
-		print('----- Generating text after Epoch: %d' % epoch)
+	def __len__(self) -> int:
+		return len(self.infile_paths)
 
-		start_index = random.randint(0, len(self.text) - self.maxlen - 1)
-		for diversity in [0.2, 0.5, 1.0, 1.2]:
-			print('----- diversity:', diversity)
+	def __getitem__(self, idx: int) -> Tuple[np.ndarray, np.ndarray]:
+		infile_path = self.infile_paths[idx]
+		print("Loading data from \"{}\".".format(infile_path))
+		with np.load(infile_path) as archive:
+			# print(archive.files)
+			# help(archive)
+			arrs = tuple(arr for (_, arr) in archive.iteritems())
+			# print(arrs)
+			arr = np.concatenate(arrs, axis=0)
+			step = 3
+			seqs = []
+			next_chars = []
+			for i in range(0, arr.shape[0] - self.maxlen, step):
+				seqs.append(arr[i: i + self.maxlen])
+				next_chars.append(arr[i + self.maxlen])
+			print('nb sequences:', len(seqs))
+			return np.asarray(seqs), np.asarray(next_chars)
 
-			generated = ''
-			sentence = self.text[start_index: start_index + self.maxlen]
-			generated += sentence
-			print('----- Generating with seed: "' + sentence + '"')
-			sys.stdout.write(generated)
-
-			for i in range(400):
-				x_pred = np.zeros((1, self.maxlen, len(self.chars)))
-				for t, char in enumerate(sentence):
-					x_pred[0, t, self.char_indices[char]] = 1.
-
-				preds = self.model.predict(x_pred, verbose=0)[0]
-				next_index = sample(preds, diversity)
-				next_char = self.indices_char[next_index]
-
-				generated += next_char
-				sentence = sentence[1:] + next_char
-
-				sys.stdout.write(next_char)
-				sys.stdout.flush()
-			print()
+	def on_epoch_end(self):
+		pass
 
 
-class MimetypeFileWalker(object):
+class NPZFileWalker(object):
+	FILE_EXTENSION_PATTERN = re.compile("\.npz", re.IGNORECASE)
 
-	def __init__(self, mimetype_matcher: Callable[[str], bool]):
-		self.mimetype_matcher = mimetype_matcher
-		self.__mime = magic.Magic(mime=True)
+	@classmethod
+	def is_file(cls, path: str) -> bool:
+		ext = os.path.splitext(path)[1]
+		match = cls.FILE_EXTENSION_PATTERN.match(ext)
+		return bool(match)
 
-	def __call__(self, inpaths: Iterable[str]) -> Iterator[str]:
-		for inpath in inpaths:
-			if os.path.isdir(inpath):
-				for root, _, files in os.walk(inpath, followlinks=True):
-					for file in files:
-						filepath = os.path.join(root, file)
-						mimetype = self.__mime.from_file(filepath)
-						if self.mimetype_matcher(mimetype):
-							yield filepath
-			else:
-				mimetype = self.__mime.from_file(inpath)
-				if self.mimetype_matcher(mimetype):
-					yield inpath
+	def __call__(self, indir: str) -> Iterator[str]:
+		for root, dirs, files in os.walk(indir, followlinks=True):
+			for file in files:
+				filepath = os.path.join(root, file)
+				if self.is_file(filepath):
+					yield filepath
 
 
-def parse_book_filename(inpath: str) -> Tuple[int, str]:
-	filename = os.path.basename(inpath)
-	m = INPUT_FILENAME_PATTERN.match(filename)
-	if m:
-		ordinality = int(m.group(1))
-		title = m.group(2)
-	else:
-		raise ValueError("Could not parse filename for path \"{}\".".format(inpath))
-	return ordinality, title
-
-
-def read_books(infiles: Iterable[str]) -> Iterator[Book]:
-	reader = TextChapterReader()
-
-	for infile in infiles:
-		print("Reading \"{}\".".format(infile), file=sys.stderr)
-		book_ordinality, book_title = parse_book_filename(infile)
-		chaps = reader(infile)
-		print("Read {} chapter(s) for book {}, titled \"{}\".".format(len(chaps), book_ordinality, book_title),
-			  file=sys.stderr)
-		yield Book(book_ordinality, book_title, chaps)
-
-
-def sample(preds, temperature=1.0):
-	# helper function to sample an index from a probability array
-	preds = np.asarray(preds).astype('float64')
-	preds = np.log(preds) / temperature
-	exp_preds = np.exp(preds)
-	preds = exp_preds / np.sum(exp_preds)
-	probas = np.random.multinomial(1, preds, 1)
-	return np.argmax(probas)
+def create_model(maxlen: int, feature_count: int) -> Sequential:
+	result = Sequential()
+	result.add(LSTM(128, input_shape=(maxlen, feature_count)))
+	result.add(Dense(feature_count))
+	result.add(Activation('softmax'))
+	optimizer = RMSprop(lr=0.01)
+	result.compile(loss='categorical_crossentropy', optimizer=optimizer)
+	return result
 
 
 def __create_argparser() -> argparse.ArgumentParser:
 	result = argparse.ArgumentParser(
 		description="Creates a language model for generating prose.")
-	result.add_argument("inpaths", metavar="FILE", nargs='+',
-						help="The text file(s) and/or directory path(s) to process.")
-	result.add_argument("-e", "--encoding", metavar="CODEC", default="utf-8",
-						help="The input file encoding.")
+	result.add_argument("indir", metavar="INDIR",
+						help="The directory containing the vocabulary and feature data to read.")
+	result.add_argument("outdir", metavar="OUTDIR", help="The directory to store model files under.")
 	result.add_argument("-s", "--random-seed", dest="random_seed", metavar="SEED", type=int, default=7,
 						help="The random seed to use.")
+	result.add_argument("-e", "--epochs", metavar="EPOCHS", type=int, default=60,
+						help="The number of epochs use for training.")
 	return result
 
 
 def __main(args):
 	random_seed = args.random_seed
-	print("Setting random seed to {}.".format(random_seed), file=sys.stderr)
+	print("Setting random seed to {}.".format(random_seed))
 	# https://machinelearningmastery.com/time-series-prediction-lstm-recurrent-neural-networks-python-keras/
 	# fix random seed for reproducibility
 	random.seed(random_seed)
 	np.random.seed(random_seed)
-	file_walker = MimetypeFileWalker(lambda mimetype: mimetype == INPUT_FILE_MIMETYPE)
-	inpaths = args.inpaths
-	print("Looking for input text files underneath {}.".format(inpaths), file=sys.stderr)
-	infiles = file_walker(inpaths)
-	books = tuple(read_books(infiles))
-	print("Read {} book(s).".format(len(books)), file=sys.stderr)
 
-	# Concatenate all chapters for testing
-	#all_sents = tuple(sent for book in books for chap in book.chaps for par in chap.pars for sent in sent_tokenize(par))
-	chap_reprs = []
-	for book in books:
-		for chap in book.chaps:
-			chap_repr = "\n\n".join(chap.pars)
-			chap_reprs.append(chap_repr)
-	raw_text = "\n\n\n====\n\n\n".join(chap_reprs)
-	#print(raw_text)
-	n_chars = len(raw_text)
-	chars = sorted(list(frozenset(raw_text)))
-	#chars = tuple(sorted(frozenset(char for sent in all_sents for char in sent)))
-	char_indices = dict((c, i) for i, c in enumerate(chars))
-	indices_char = dict((i, c) for i, c in enumerate(chars))
-	n_vocab = len(chars)
-	print("Total Characters: ", n_chars)
-	print("Total Vocab: ", n_vocab)
+	indir = args.indir
+	print("Will read data from \"{}\".".format(indir))
+	outdir = args.outdir
+	print("Will save model data to \"{}\".".format(outdir))
+	os.makedirs(outdir, exist_ok=True)
 
-	# cut the text in semi-redundant sequences of maxlen characters
+	vocab_filepath = os.path.join(indir, OUTPUT_VOCAB_FILENAME)
+	vocab = read_vocab(vocab_filepath)
+	print("Read vocabulary of size {}".format(len(vocab)))
+
+	file_walker = NPZFileWalker()
+	feature_dir = os.path.join(indir, OUTPUT_FEATURE_DIRNAME)
+	print("Reading feature files under \"{}\".".format(feature_dir))
+	feature_files = tuple(file_walker(feature_dir))
+	print("Found {} feature file(s).".format(len(feature_files)))
 	maxlen = 40
-	step = 3
-	sentences = []
-	next_chars = []
-	for i in range(0, len(raw_text) - maxlen, step):
-		sentences.append(raw_text[i: i + maxlen])
-		next_chars.append(raw_text[i + maxlen])
-	print('nb sequences:', len(sentences))
+	data_generator = FileLoadingDataGenerator(feature_files, maxlen)
+	feature_count = FeatureExtractor.feature_count(vocab)
 
-	print('Vectorization...')
-	x = np.zeros((len(sentences), maxlen, n_vocab), dtype=np.bool)
-	y = np.zeros((len(sentences), n_vocab), dtype=np.bool)
-	for i, sentence in enumerate(sentences):
-		for t, char in enumerate(sentence):
-			x[i, t, char_indices[char]] = 1
-	y[i, char_indices[next_chars[i]]] = 1
+	model_checkpoint_outdir = os.path.join(outdir, MODEL_CHECKPOINT_DIRNAME)
+	print("Will save model checkpoints to \"{}\".".format(model_checkpoint_outdir))
+
+	# https://stackoverflow.com/a/43472000/1391325
+	with keras.backend.get_session():
+		# build the model: a single LSTM
+		print('Build model...')
+		model = create_model(maxlen, feature_count)
+		# epoch_end_hook = EpochEndHook(model, raw_text, chars, char_indices, indices_char, maxlen)
+		# print_callback = LambdaCallback(on_epoch_end=epoch_end_hook)
+		# define the checkpoint
+		filepath = os.path.join(model_checkpoint_outdir, "weights-improvement-{epoch:02d}-{loss:.4f}.hdf5")
+		checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
+		callbacks_list = [checkpoint]
+		# train LSTM
+		epochs = args.epochs
+		print("Training model using {} epoch(s).".format(epochs), file=sys.stderr)
+		# workers = max(multiprocessing.cpu_count() // 2, 1)
+		workers = 1
+		print("Using {} worker thread(s).".format(workers), file=sys.stderr)
+		training_history = model.fit_generator(data_generator, epochs=epochs, verbose=0, use_multiprocessing=False,
+											   workers=workers, callbacks=callbacks_list)
 
 
-	# https://machinelearningmastery.com/how-to-one-hot-encode-sequence-data-in-python/
-	# integer encode
-	#label_encoder = LabelEncoder()
-
-	# build the model: a single LSTM
-	print('Build model...')
-	model = Sequential()
-	model.add(LSTM(128, input_shape=(maxlen, len(chars))))
-	model.add(Dense(len(chars)))
-	model.add(Activation('softmax'))
-
-	optimizer = RMSprop(lr=0.01)
-	model.compile(loss='categorical_crossentropy', optimizer=optimizer)
-	epoch_end_hook = EpochEndHook(model, raw_text, chars, char_indices, indices_char, maxlen)
-	#print_callback = LambdaCallback(on_epoch_end=epoch_end_hook)
-	# define the checkpoint
-	filepath = "weights-improvement-{epoch:02d}-{loss:.4f}.hdf5"
-	checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
-	callbacks_list = [checkpoint]
-
-	model.fit(x, y,
-			  batch_size=128,
-			  epochs=60,
-			  callbacks=callbacks_list)
+# model.fit(x, y,
+#		  batch_size=128,
+#		  epochs=60,
+#		  callbacks=callbacks_list)
 
 
 if __name__ == "__main__":
