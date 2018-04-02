@@ -58,7 +58,10 @@ def __main(args):
 	storygenerator.io.write_vocab(vocab, outdir)
 
 	feature_dirpath = os.path.join(outdir, storygenerator.io.OUTPUT_FEATURE_DIRNAME)
-	os.mkdir(feature_dirpath)
+	try:
+		os.mkdir(feature_dirpath)
+	except FileExistsError:
+		pass
 	feature_extractor = storygenerator.io.FeatureExtractor(vocab)
 	for infile, book in infile_books:
 		features = feature_extractor(book)
