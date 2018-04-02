@@ -57,7 +57,7 @@ class FeatureExtractor(object):
 		:param par: The paragraph to extract features from.
 		:return: A new numpy array representing the paragraph.
 		"""
-		result = np.zeros((len(par), self.__feature_count))
+		result = np.zeros((len(par), self.__feature_count), dtype=np.bool)
 		for idx, char in enumerate(par):
 			feature_idx = self.__vocab_idxs[char]
 			result[idx, feature_idx] = 1
