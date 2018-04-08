@@ -45,13 +45,13 @@ class FeatureExtractor(object):
 	def __call__(self, book: Book) -> np.array:
 		chap_arrs = tuple(self.__extract_chap_features(chap) for chap in book.chaps)
 		result = np.concatenate(chap_arrs, axis=0)
-		result[-1, self.__book_end_feature_idx] = 1
+		result[-1, self.__book_end_feature_idx] = True
 		return result
 
 	def __extract_chap_features(self, chap: Chapter) -> np.array:
 		par_arrs = tuple(self.__extract_par_features(par) for par in chap.pars)
 		result = np.concatenate(par_arrs, axis=0)
-		result[-1, self.__chapter_end_feature_idx] = 1
+		result[-1, self.__chapter_end_feature_idx] = True
 		return result
 
 	def __extract_par_features(self, par: str) -> np.array:
@@ -65,9 +65,9 @@ class FeatureExtractor(object):
 		result = np.zeros((len(par), self.__feature_count), dtype=np.bool)
 		for idx, char in enumerate(par):
 			feature_idx = self.__vocab_idxs[char]
-			result[idx, feature_idx] = 1
+			result[idx, feature_idx] = True
 
-		result[-1, self.__par_end_feature_idx] = 1
+		result[-1, self.__par_end_feature_idx] = True
 		return result
 
 
