@@ -22,6 +22,7 @@ INPUT_FILE_MIMETYPE = "text/plain"
 OUTPUT_TEXT_FILE_DELIMITER = '\t'
 OUTPUT_TEXT_FILE_EXTENSION = ".features.gz"
 
+
 def read_books(infiles: Iterable[str]) -> Iterator[Tuple[str, storygenerator.io.Book]]:
 	reader = storygenerator.io.TextChapterReader()
 
@@ -73,7 +74,7 @@ def __main(args):
 		print("Writing features extracted from \"{}\" to \"{}\".".format(infile, outpath))
 		timezone = tzlocal.get_localzone()
 		timestamp = datetime.datetime.now(timezone).isoformat()
-		header = "{}, \"{}\", {}".format(infile, book.title, timestamp)
+		header = "{}; \"{}\"; {}; Shape: {}".format(infile, book.title, timestamp, features.shape)
 		np.savetxt(outpath, features, header=header, delimiter=OUTPUT_TEXT_FILE_DELIMITER)
 
 
