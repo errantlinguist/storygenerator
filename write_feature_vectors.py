@@ -20,7 +20,7 @@ import storygenerator.io
 
 INPUT_FILE_MIMETYPE = "text/plain"
 OUTPUT_TEXT_FILE_DELIMITER = '\t'
-
+OUTPUT_TEXT_FILE_EXTENSION = ".features.gz"
 
 def read_books(infiles: Iterable[str]) -> Iterator[Tuple[str, storygenerator.io.Book]]:
 	reader = storygenerator.io.TextChapterReader()
@@ -69,7 +69,7 @@ def __main(args):
 	for infile, book in infile_books:
 		features = feature_extractor(book)
 		book_filename_base = os.path.splitext(os.path.basename(infile))[0]
-		outpath = os.path.join(feature_dirpath, book_filename_base + ".features.gz")
+		outpath = os.path.join(feature_dirpath, book_filename_base + OUTPUT_TEXT_FILE_EXTENSION)
 		print("Writing features extracted from \"{}\" to \"{}\".".format(infile, outpath))
 		timezone = tzlocal.get_localzone()
 		timestamp = datetime.datetime.now(timezone).isoformat()
