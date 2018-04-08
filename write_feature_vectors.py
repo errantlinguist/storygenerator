@@ -9,10 +9,12 @@ __copyright__ = "Copyright (C) 2018 Todd Shore"
 __license__ = "Apache License, Version 2.0"
 
 import argparse
+import datetime
 import os
 from typing import Iterable, Iterator, Tuple
 
 import numpy as np
+import tzlocal
 
 import storygenerator.io
 
@@ -68,7 +70,10 @@ def __main(args):
 		book_filename_base = os.path.splitext(os.path.basename(infile))[0]
 		outpath = os.path.join(feature_dirpath, book_filename_base + ".features.gz")
 		print("Writing features extracted from \"{}\" to \"{}\".".format(infile, outpath))
-		np.savetxt(outpath, features)
+		timezone = tzlocal.get_localzone()
+		timestamp = datetime.datetime.now(timezone).isoformat()
+		header = "{}, \"{}\", {}".format(infile, book.title, timestamp)
+		np.savetxt(outpath, features, header=header)
 
 
 if __name__ == "__main__":
