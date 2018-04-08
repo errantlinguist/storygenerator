@@ -66,9 +66,9 @@ def __main(args):
 	for infile, book in infile_books:
 		features = feature_extractor(book)
 		book_filename_base = os.path.splitext(os.path.basename(infile))[0]
-		outpath = os.path.join(feature_dirpath, book_filename_base + ".npz")
+		outpath = os.path.join(feature_dirpath, book_filename_base + ".features.gz")
 		print("Writing features extracted from \"{}\" to \"{}\".".format(infile, outpath))
-		np.savez_compressed(outpath, features)
+		np.savetxt(outpath, features)
 
 
 if __name__ == "__main__":
