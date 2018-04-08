@@ -19,8 +19,37 @@ import tzlocal
 import storygenerator.io
 
 INPUT_FILE_MIMETYPE = "text/plain"
-OUTPUT_TEXT_FILE_DELIMITER = '\t'
-OUTPUT_TEXT_FILE_EXTENSION = ".features.gz"
+
+
+class NPZFeatureWriter(object):
+	OUTPUT_FILE_DELIMITER = '\t'
+	OUTPUT_FILE_EXTENSION = ".npz"
+
+	def __init__(self, outdir: str):
+		self.outdir = outdir
+
+	def __call__(self, infile: str, features: np.array, book: storygenerator.Book):
+		infile_name_base = os.path.splitext(os.path.basename(infile))[0]
+		outpath = os.path.join(self.outdir, infile_name_base + self.OUTPUT_FILE_EXTENSION)
+		print("Writing features extracted from \"{}\" to \"{}\".".format(infile, outpath))
+		np.savez_compressed(outpath, **{infile_name_base: features})
+
+
+class TextFeatureWriter(object):
+	OUTPUT_FILE_DELIMITER = '\t'
+	OUTPUT_FILE_EXTENSION = ".features.gz"
+
+	def __init__(self, outdir: str):
+		self.outdir = outdir
+
+	def __call__(self, infile: str, features: np.array, book: storygenerator.Book):
+		infile_name_base = os.path.splitext(os.path.basename(infile))[0]
+		outpath = os.path.join(self.outdir, infile_name_base + self.OUTPUT_FILE_EXTENSION)
+		print("Writing features extracted from \"{}\" to \"{}\".".format(infile, outpath))
+		timezone = tzlocal.get_localzone()
+		timestamp = datetime.datetime.now(timezone).isoformat()
+		header = "{}; \"{}\"; {}; Shape: {}".format(infile_name_base, book.title, timestamp, features.shape)
+		np.savetxt(outpath, features, header=header, delimiter=self.OUTPUT_FILE_DELIMITER)
 
 
 def read_books(infiles: Iterable[str]) -> Iterator[Tuple[str, storygenerator.io.Book]]:
@@ -41,6 +70,8 @@ def __create_argparser() -> argparse.ArgumentParser:
 						help="The text file(s) and/or directory path(s) to process.")
 	result.add_argument("-o", "--outdir", metavar="DIR", required=True,
 						help="The directory to write the output files to.")
+	result.add_argument("-t", "--text", action="store_true",
+						help="Writes the feature arrays in tabular text format.")
 	return result
 
 
@@ -67,15 +98,10 @@ def __main(args):
 	except FileExistsError:
 		pass
 	feature_extractor = storygenerator.io.FeatureExtractor(vocab)
+	writer = TextFeatureWriter(feature_dirpath) if args.text else NPZFeatureWriter(feature_dirpath)
 	for infile, book in infile_books:
 		features = feature_extractor(book)
-		book_filename_base = os.path.splitext(os.path.basename(infile))[0]
-		outpath = os.path.join(feature_dirpath, book_filename_base + OUTPUT_TEXT_FILE_EXTENSION)
-		print("Writing features extracted from \"{}\" to \"{}\".".format(infile, outpath))
-		timezone = tzlocal.get_localzone()
-		timestamp = datetime.datetime.now(timezone).isoformat()
-		header = "{}; \"{}\"; {}; Shape: {}".format(infile, book.title, timestamp, features.shape)
-		np.savetxt(outpath, features, header=header, delimiter=OUTPUT_TEXT_FILE_DELIMITER)
+		writer(infile, features, book)
 
 
 if __name__ == "__main__":
