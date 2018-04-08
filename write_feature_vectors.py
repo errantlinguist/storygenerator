@@ -19,6 +19,7 @@ import tzlocal
 import storygenerator.io
 
 INPUT_FILE_MIMETYPE = "text/plain"
+OUTPUT_TEXT_FILE_DELIMITER = '\t'
 
 
 def read_books(infiles: Iterable[str]) -> Iterator[Tuple[str, storygenerator.io.Book]]:
@@ -73,7 +74,7 @@ def __main(args):
 		timezone = tzlocal.get_localzone()
 		timestamp = datetime.datetime.now(timezone).isoformat()
 		header = "{}, \"{}\", {}".format(infile, book.title, timestamp)
-		np.savetxt(outpath, features, header=header)
+		np.savetxt(outpath, features, header=header, delimiter=OUTPUT_TEXT_FILE_DELIMITER)
 
 
 if __name__ == "__main__":
