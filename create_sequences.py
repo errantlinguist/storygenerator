@@ -50,7 +50,7 @@ def read_file(infile_path: str, maxlen: int, sampling_rate: int) -> Tuple[List[n
 	print("Loading data from \"{}\".".format(infile_path))
 	x = []
 	y = []
-	with np.load(infile_path, mmap_mode=True) as archive:
+	with np.load(infile_path) as archive:
 		for (_, arr) in archive.iteritems():
 			obs_seqs, next_chars = create_sequences(arr, maxlen, sampling_rate)
 			x.extend(obs_seqs)
