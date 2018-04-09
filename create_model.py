@@ -184,7 +184,7 @@ def __main(args):
 		workers = 1
 		max_queue_size = 1
 		print("Using {} worker thread(s) with a max queue size of {}.".format(workers, max_queue_size))
-		training_history = model.fit_generator(data_generator, epochs=epochs, verbose=0, use_multiprocessing=False,
+		training_history = model.fit_generator(data_generator, epochs=epochs, verbose=1, use_multiprocessing=False,
 											   workers=workers, max_queue_size=max_queue_size, callbacks=callbacks_list)
 
 
