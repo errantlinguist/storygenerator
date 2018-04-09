@@ -12,8 +12,7 @@ import argparse
 import multiprocessing
 import os
 import random
-import re
-from typing import Iterator, Iterable, List, Sequence, Tuple
+from typing import Iterable, List, Sequence, Tuple
 
 import keras.preprocessing.sequence
 import numpy as np
@@ -22,7 +21,8 @@ from keras.layers import Activation, Dense, LSTM
 from keras.models import Sequential
 from keras.optimizers import RMSprop
 
-from storygenerator.io import OUTPUT_FEATURE_DIRNAME, OUTPUT_VOCAB_FILENAME, FeatureExtractor, read_vocab
+from extract_features import OUTPUT_FEATURE_DIRNAME
+from storygenerator.io import OUTPUT_VOCAB_FILENAME, FeatureExtractor, NPZFileWalker, read_vocab
 
 MODEL_CHECKPOINT_DIRNAME = "models"
 
@@ -45,23 +45,6 @@ class FileLoadingDataGenerator(keras.utils.Sequence):
 
 	def on_epoch_end(self):
 		pass
-
-
-class NPZFileWalker(object):
-	FILE_EXTENSION_PATTERN = re.compile("\.npz", re.IGNORECASE)
-
-	@classmethod
-	def is_file(cls, path: str) -> bool:
-		ext = os.path.splitext(path)[1]
-		match = cls.FILE_EXTENSION_PATTERN.match(ext)
-		return bool(match)
-
-	def __call__(self, indir: str) -> Iterator[str]:
-		for root, dirs, files in os.walk(indir, followlinks=True):
-			for file in files:
-				filepath = os.path.join(root, file)
-				if self.is_file(filepath):
-					yield filepath
 
 
 def create_model(maxlen: int, feature_count: int) -> Sequential:

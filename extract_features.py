@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Creates a language model for generating prose.
+Extracts features from a given set of text files for use in training a language model.
 """
 
 __author__ = "Todd Shore <errantlinguist+github@gmail.com>"
@@ -19,6 +19,7 @@ import tzlocal
 import storygenerator.io
 
 INPUT_FILE_MIMETYPE = "text/plain"
+OUTPUT_FEATURE_DIRNAME = "features"
 
 
 class NPZFeatureWriter(object):
@@ -65,7 +66,7 @@ def read_books(infiles: Iterable[str]) -> Iterator[Tuple[str, storygenerator.io.
 
 def __create_argparser() -> argparse.ArgumentParser:
 	result = argparse.ArgumentParser(
-		description="Creates a language model for generating prose.")
+		description="Extracts features from a given set of text files for use in training a language model.")
 	result.add_argument("inpaths", metavar="FILE", nargs='+',
 						help="The text file(s) and/or directory path(s) to process.")
 	result.add_argument("-o", "--outdir", metavar="DIR", required=True,
@@ -92,7 +93,7 @@ def __main(args):
 	os.makedirs(outdir, exist_ok=True)
 	storygenerator.io.write_vocab(vocab, outdir)
 
-	feature_dirpath = os.path.join(outdir, storygenerator.io.OUTPUT_FEATURE_DIRNAME)
+	feature_dirpath = os.path.join(outdir, OUTPUT_FEATURE_DIRNAME)
 	try:
 		os.mkdir(feature_dirpath)
 	except FileExistsError:

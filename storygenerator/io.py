@@ -21,7 +21,6 @@ DEFAULT_PART_NAME_ORDINALITIES = {"PROLOGUE": -1, "CHAPTER": 0, "EPILOGUE": 1}
 ORDERED_CHAPTER_PATTERN = re.compile("^(\w+)\s+(\d+)")
 
 INPUT_FILENAME_PATTERN = re.compile("(\d+)\s+([^.]+)\..+")
-OUTPUT_FEATURE_DIRNAME = "features"
 OUTPUT_VOCAB_FILENAME = "vocab.tsv"
 VOCAB_FILE_CSV_DIALECT = csv.excel_tab
 
@@ -90,6 +89,23 @@ class MimetypeFileWalker(object):
 				mimetype = self.__mime.from_file(inpath)
 				if self.mimetype_matcher(mimetype):
 					yield inpath
+
+
+class NPZFileWalker(object):
+	FILE_EXTENSION_PATTERN = re.compile("\.npz", re.IGNORECASE)
+
+	@classmethod
+	def is_file(cls, path: str) -> bool:
+		ext = os.path.splitext(path)[1]
+		match = cls.FILE_EXTENSION_PATTERN.match(ext)
+		return bool(match)
+
+	def __call__(self, indir: str) -> Iterator[str]:
+		for root, dirs, files in os.walk(indir, followlinks=True):
+			for file in files:
+				filepath = os.path.join(root, file)
+				if self.is_file(filepath):
+					yield filepath
 
 
 class TextChapterReader(object):
