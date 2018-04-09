@@ -9,15 +9,16 @@ __copyright__ = "Copyright (C) 2018 Todd Shore"
 __license__ = "Apache License, Version 2.0"
 
 import argparse
+import multiprocessing
 import os
 import random
 import re
-from typing import Iterator, Iterable, List, Optional, Sequence, Tuple
+from typing import Iterator, Iterable, List, Sequence, Tuple
 
 import keras.preprocessing.sequence
 import numpy as np
 from keras.callbacks import ModelCheckpoint
-from keras.layers import Activation, Dense, LSTM, TimeDistributed
+from keras.layers import Activation, Dense, LSTM
 from keras.models import Sequential
 from keras.optimizers import RMSprop
 
@@ -26,59 +27,24 @@ from storygenerator.io import OUTPUT_FEATURE_DIRNAME, OUTPUT_VOCAB_FILENAME, Fea
 MODEL_CHECKPOINT_DIRNAME = "models"
 
 
-#class FileLoadingDataGenerator(keras.utils.Sequence):
+class FileLoadingDataGenerator(keras.utils.Sequence):
 
-#	def __init__(self, infile_paths: Sequence[str], maxlen: int, feature_count: int, sampling_rate: Optional[int] = 3):
-#		self.infile_paths = infile_paths
-#		self.maxlen = maxlen
-#		self.feature_count = feature_count
-#		self.sampling_rate = sampling_rate
-#
-#	def __len__(self) -> int:
-#		return len(self.infile_paths)
-#
-#	def __getitem__(self, idx: int) -> Tuple[np.ndarray, np.ndarray]:
-#		infile_path = self.infile_paths[idx]
-#		print("Loading data from \"{}\".".format(infile_path))
-#		with np.load(infile_path) as archive:
-#			arrs = tuple(arr for (_, arr) in archive.iteritems())
-			# NOTE: Concatenate all extracted files into a single 2D array;
-			# This shouldn't be a problem because each individual file's array is ended with a datapoint with a feature
-			# That indicates the end of the given book
-#			arr = np.concatenate(arrs, axis=0)
+	def __init__(self, infile_paths: Sequence[str], maxlen: int, feature_count: int, sampling_rate: int):
+		self.infile_paths = infile_paths
+		self.maxlen = maxlen
+		self.feature_count = feature_count
+		self.sampling_rate = sampling_rate
 
-			# seq_count = math.ceil(arr.shape[0] / self.maxlen)
-			# remaining_datapoint_count = arr.shape[0]
-			# x = []
-			# y = []
-			# for target_char_idx in range(0, arr.shape[0], self.sampling_rate):
-			#	obs_seq_start_idx = max(0, target_char_idx - 1 - self.maxlen)
-			#	obs_seq = arr[obs_seq_start_idx : target_char_idx]
-			#	#size_diff = self.maxlen - obs_seq.shape[0]
-			# padded_obs_seq = np.zeros(self.maxlen, self.feature_count)
-			# obs_seq[obs_seq.shape[0] - ]
-			# obs_seq.insert((0, size_diff))
-			#	x.append(obs_seq)
-			#	target_char_datapoint = arr[target_char_idx]
-			#	y.append(target_char_datapoint)
+	def __len__(self) -> int:
+		return len(self.infile_paths)
 
-			# x = np.zeros((seq_count, self.maxlen, self.feature_count))
-			# y = np.zeros((seq_count, self.feature_count))
-			# for seq_idx in range(0, seq_count):
-			#	seq_len = min(self.maxlen, remaining_datapoint_count)
+	def __getitem__(self, idx: int) -> Tuple[np.ndarray, np.ndarray]:
+		infile_path = self.infile_paths[idx]
+		x, y = read_file(infile_path, self.maxlen, self.sampling_rate)
+		return np.asarray(x), np.asarray(y)
 
-			#	x_sequence = arr[i * self.maxlen:(i + 1) * self.maxlen]
-			#	x[i] = x_sequence
-			#	y_sequence = arr[i * self.maxlen + 1:(i + 1) * self.maxlen + 1]
-			#	y[i] = y_sequence
-
-			# x = keras.preprocessing.sequence.pad_sequences(x, maxlen=self.maxlen, dtype='bool')
-			# y = keras.preprocessing.sequence.pad_sequences(y, maxlen=self.maxlen, dtype='bool')
-			# return x, y
-#			return obs_seqs, next_chars
-
-#	def on_epoch_end(self):
-#		pass
+	def on_epoch_end(self):
+		pass
 
 
 class NPZFileWalker(object):
@@ -102,8 +68,8 @@ def create_model(maxlen: int, feature_count: int) -> Sequential:
 	result = Sequential()
 	result.add(LSTM(128, input_shape=(maxlen, feature_count)))
 	result.add(Dense(feature_count))
-	#result.add(LSTM(128, input_shape=(maxlen, feature_count), return_sequences=True))
-	#result.add(TimeDistributed(Dense(feature_count)))
+	# result.add(LSTM(128, input_shape=(maxlen, feature_count), return_sequences=True))
+	# result.add(TimeDistributed(Dense(feature_count)))
 	result.add(Activation('softmax'))
 	optimizer = RMSprop(lr=0.01)
 	result.compile(loss='categorical_crossentropy', optimizer=optimizer)
@@ -124,14 +90,15 @@ def create_sequences(features: np.array, maxlen: int, sampling_rate: int) -> Tup
 
 def read_file(infile_path: str, maxlen: int, sampling_rate: int) -> Tuple[List[np.array], List[np.array]]:
 	print("Loading data from \"{}\".".format(infile_path))
+	x = []
+	y = []
 	with np.load(infile_path) as archive:
-		arrs = tuple(arr for (_, arr) in archive.iteritems())
-		# NOTE: Concatenate all extracted files into a single 2D array;
-		# This shouldn't be a problem because each individual file's array is ended with a datapoint with a feature
-		# That indicates the end of the given book
-		arr = np.concatenate(arrs, axis=0)
-		obs_seqs, next_chars = create_sequences(arr, maxlen, sampling_rate)
-		return obs_seqs, next_chars
+		for (_, arr) in archive.iteritems():
+			obs_seqs, next_chars = create_sequences(arr, maxlen, sampling_rate)
+			x.extend(obs_seqs)
+			y.extend(next_chars)
+
+	return x, y
 
 
 def read_files(infile_paths: Iterable[str], maxlen: int, sampling_rate: int) -> Tuple[List[np.array], List[np.array]]:
@@ -180,19 +147,17 @@ def __main(args):
 	print("Reading feature files under \"{}\".".format(feature_dir))
 	feature_files = tuple(file_walker(feature_dir))
 	print("Found {} feature file(s).".format(len(feature_files)))
-	maxlen = 40
 	feature_count = FeatureExtractor.feature_count(vocab)
-	#if len(feature_files) != 1:
-	#	raise ValueError("No support yet for multiple files.")
-
-	x, y = read_files(feature_files, maxlen, 3)
-	x = np.asarray(x)
-	print(x.shape)
-	y = np.asarray(y)
-	print(y.shape)
-	#x = keras.preprocessing.sequence.pad_sequences(x, maxlen=maxlen, dtype='bool')
-	#y = keras.preprocessing.sequence.pad_sequences(y, maxlen=maxlen, dtype='bool')
-	#data_generator = FileLoadingDataGenerator(feature_files, maxlen, feature_count)
+	maxlen = 40
+	sampling_rate = 3
+	# x, y = read_files(feature_files, maxlen, sampling_rate)
+	# x = np.asarray(x)
+	# print(x.shape)
+	# y = np.asarray(y)
+	# print(y.shape)
+	# x = keras.preprocessing.sequence.pad_sequences(x, maxlen=maxlen, dtype='bool')
+	# y = keras.preprocessing.sequence.pad_sequences(y, maxlen=maxlen, dtype='bool')
+	data_generator = FileLoadingDataGenerator(feature_files, maxlen, feature_count, sampling_rate)
 
 	model_checkpoint_outdir = os.path.join(outdir, MODEL_CHECKPOINT_DIRNAME)
 	print("Will save model checkpoints to \"{}\".".format(model_checkpoint_outdir))
@@ -211,18 +176,16 @@ def __main(args):
 		# train LSTM
 		epochs = args.epochs
 		print("Training model using {} epoch(s).".format(epochs))
-		training_history = model.fit(x, y,
-				  #batch_seq_count=128,
-				  epochs=epochs,
-				  callbacks=callbacks_list)
-		# workers = max(multiprocessing.cpu_count() // 2, 1)
-		#workers = 1
-		#print("Using {} worker thread(s).".format(workers))
-		#training_history = model.fit_generator(data_generator, epochs=epochs, verbose=0, use_multiprocessing=False,
-		#									   workers=workers, callbacks=callbacks_list)
-
-
-
+		# training_history = model.fit(x, y,
+		#		  #batch_seq_count=128,
+		#		  epochs=epochs,
+		#		  callbacks=callbacks_list)
+		workers = max(multiprocessing.cpu_count() // 2, 1)
+		workers = 1
+		max_queue_size = 1
+		print("Using {} worker thread(s) with a max queue size of {}.".format(workers, max_queue_size))
+		training_history = model.fit_generator(data_generator, epochs=epochs, verbose=0, use_multiprocessing=False,
+											   workers=workers, max_queue_size=max_queue_size, callbacks=callbacks_list)
 
 
 if __name__ == "__main__":
