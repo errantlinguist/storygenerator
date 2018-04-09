@@ -134,14 +134,14 @@ def read_file(infile_path: str, maxlen: int, sampling_rate: int) -> Tuple[List[n
 		return obs_seqs, next_chars
 
 
-#def read_files(infile_paths: Iterable[str], maxlen: int, sampling_rate: int) -> Tuple[List[np.array], List[np.array]]:
-#	x = []
-#	y = []
-#	for infile_path in infile_paths:
-#		obs_seqs, next_chars = read_file(infile_path, maxlen, sampling_rate)
-#		x.extend(obs_seqs)
-#		y.extend(next_chars)
-#	return x, y
+def read_files(infile_paths: Iterable[str], maxlen: int, sampling_rate: int) -> Tuple[List[np.array], List[np.array]]:
+	x = []
+	y = []
+	for infile_path in infile_paths:
+		obs_seqs, next_chars = read_file(infile_path, maxlen, sampling_rate)
+		x.extend(obs_seqs)
+		y.extend(next_chars)
+	return x, y
 
 
 def __create_argparser() -> argparse.ArgumentParser:
@@ -182,10 +182,10 @@ def __main(args):
 	print("Found {} feature file(s).".format(len(feature_files)))
 	maxlen = 40
 	feature_count = FeatureExtractor.feature_count(vocab)
-	if len(feature_files) != 1:
-		raise ValueError("No support yet for multiple files.")
+	#if len(feature_files) != 1:
+	#	raise ValueError("No support yet for multiple files.")
 
-	x, y = read_file(feature_files[0], maxlen, 3)
+	x, y = read_files(feature_files, maxlen, 3)
 	x = np.asarray(x)
 	print(x.shape)
 	y = np.asarray(y)
