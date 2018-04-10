@@ -15,7 +15,7 @@ from typing import Iterable, List, Tuple
 
 import numpy as np
 
-from extract_features import OUTPUT_FEATURE_DIRNAME
+import extract_features
 from storygenerator.io import NPZFileWalker
 
 OUTPUT_SEQUENCE_DIRNAME = "sequences"
@@ -123,7 +123,7 @@ def __main(args):
 	print("Maximum length: {}; Sampling rate: {}; Batch size (in MB): {}".format(maxlen, sampling_rate, batch_size))
 
 	file_walker = NPZFileWalker()
-	feature_dir = os.path.join(indir, OUTPUT_FEATURE_DIRNAME)
+	feature_dir = os.path.join(indir, extract_features.OUTPUT_FEATURE_DIRNAME)
 	print("Reading feature files under \"{}\".".format(feature_dir))
 	infiles = tuple(file_walker(feature_dir))
 	print("Found {} feature file(s).".format(len(infiles)))
