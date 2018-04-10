@@ -109,17 +109,6 @@ def read_file(infile_path: str, max_length: int, sampling_rate: int) -> Tuple[Li
     return x, y
 
 
-def read_files(infile_paths: Iterable[str], max_length: int, sampling_rate: int) -> Tuple[
-    List[np.array], List[np.array]]:
-    x = []
-    y = []
-    for infile_path in infile_paths:
-        obs_seqs, next_chars = read_file(infile_path, max_length, sampling_rate)
-        x.extend(obs_seqs)
-        y.extend(next_chars)
-    return x, y
-
-
 def __create_argparser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(
         description="Creates a language model for generating prose.")
