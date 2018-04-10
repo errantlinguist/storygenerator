@@ -153,7 +153,6 @@ def __main(args):
 	assert seq_metadata
 
 	file_walker = NPZFileWalker()
-
 	seq_files = tuple(file_walker(seq_dir))
 	print("Found {} sequence file(s).".format(len(seq_files)))
 
