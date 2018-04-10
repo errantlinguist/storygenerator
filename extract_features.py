@@ -26,7 +26,6 @@ VOCAB_FILE_CSV_DIALECT = csv.excel_tab
 
 
 class NPZFeatureWriter(object):
-	OUTPUT_FILE_DELIMITER = '\t'
 	OUTPUT_FILE_EXTENSION = ".npz"
 
 	def __init__(self, outdir: str):

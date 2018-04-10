@@ -40,7 +40,6 @@ class MetadataWriter(object):
 
 
 class NPZSequenceWriter(object):
-	OUTPUT_FILE_DELIMITER = '\t'
 	OUTPUT_FILE_EXTENSION = ".npz"
 
 	def __init__(self, outdir: str, batch_size: int):
