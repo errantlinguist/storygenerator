@@ -54,6 +54,7 @@ class CachingFileReader(object):
 		common_path = os.path.commonpath((self.cache_dirpath, infile_path))
 		relative_path = os.path.relpath(infile_path, common_path)
 		cached_filepath_base = os.path.join(self.cache_dirpath, relative_path)
+		os.makedirs(os.path.dirname(cached_filepath_base), exist_ok=True)
 		cached_filepath_x = cached_filepath_base + ".x"
 		cached_filepath_y = cached_filepath_base + ".y"
 		try:
@@ -101,7 +102,7 @@ def read_seq_metadata(seq_dir: str) -> Dict[str, Any]:
 	result = {}
 	infile_path = os.path.join(seq_dir, create_sequences.MetadataWriter.OUTPUT_FILENAME)
 	print("Reading sequence metadata from \"{}\".".format(infile_path))
-	with open(infile_path, 'w') as inf:
+	with open(infile_path, 'r') as inf:
 		reader = csv.reader(inf, dialect=create_sequences.MetadataWriter.OUTPUT_CSV_DIALECT)
 		for row in reader:
 			assert len(row) == 2
@@ -158,7 +159,7 @@ def __main(args):
 	print("Will save model checkpoints to \"{}\".".format(model_checkpoint_outdir))
 	os.makedirs(model_checkpoint_outdir, exist_ok=True)
 
-	max_length = seq_metadata["max_length"]
+	max_length = int(seq_metadata["max_length"])
 	feature_count = FeatureExtractor.feature_count(vocab)
 	# https://stackoverflow.com/a/43472000/1391325
 	with keras.backend.get_session():
