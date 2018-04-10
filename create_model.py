@@ -13,7 +13,7 @@ import csv
 import os
 import random
 import tempfile
-from typing import Any, Dict, Iterable, Iterator, Tuple
+from typing import Any, Callable, Dict, Iterable, Iterator, Sequence, Tuple
 
 import keras.preprocessing.sequence
 import numpy as np
@@ -29,6 +29,7 @@ MODEL_CHECKPOINT_DIRNAME = "models"
 
 
 class CachingFileReader(object):
+
 	def __init__(self, cache_dirpath: str):
 		self.cache_dirpath = cache_dirpath
 
@@ -50,22 +51,25 @@ class CachingFileReader(object):
 		return x, y
 
 
-# WARNING: There is some sort of memory leak when using this class
-# class FileLoadingDataGenerator(keras.utils.Sequence):
-#
-#	def __init__(self, infile_paths: Sequence[str]):
-#		self.infile_paths = list(infile_paths)
-#
-#	def __len__(self) -> int:
-#		return len(self.infile_paths)
-#
-#	def __getitem__(self, idx: int) -> Tuple[np.ndarray, np.ndarray]:
-#		infile_path = self.infile_paths[idx]
-#		x, y = read_file(infile_path)
-#		return x, y
-#
-#	def on_epoch_end(self):
-#		random.shuffle(self.infile_paths)
+class FileLoadingDataGenerator(keras.utils.Sequence):
+	"""
+	WARNING: There is some sort of memory leak when using this class
+	"""
+
+	def __init__(self, infile_paths: Sequence[str], file_reader: Callable[[str], Tuple[np.array, np.array]]):
+		self.infile_paths = list(infile_paths)
+		self.file_reader = file_reader
+
+	def __len__(self) -> int:
+		return len(self.infile_paths)
+
+	def __getitem__(self, idx: int) -> Tuple[np.ndarray, np.ndarray]:
+		infile_path = self.infile_paths[idx]
+		x, y = self.file_reader(infile_path)
+		return x, y
+
+	def on_epoch_end(self):
+		random.shuffle(self.infile_paths)
 
 
 def create_model(maxlen: int, feature_count: int) -> Sequential:
@@ -153,8 +157,6 @@ def __main(args):
 	seq_files = tuple(file_walker(seq_dir))
 	print("Found {} sequence file(s).".format(len(seq_files)))
 
-	# data_generator = FileLoadingDataGenerator(feature_files)
-
 	model_checkpoint_outdir = os.path.join(outdir, MODEL_CHECKPOINT_DIRNAME)
 	print("Will save model checkpoints to \"{}\".".format(model_checkpoint_outdir))
 	os.makedirs(model_checkpoint_outdir, exist_ok=True)
@@ -183,20 +185,21 @@ def __main(args):
 		with tempfile.TemporaryDirectory() as tmpdir_path:
 			print("Will cache array data to \"{}\".".format(tmpdir_path))
 			file_reader = CachingFileReader(tmpdir_path)
-			seq_files = list(seq_files)
-			for epoch_id in range(0, epochs):
-				for seq_file in seq_files:
-					x, y = file_reader(seq_file)
-					training_history = model.fit(x, y, callbacks=callbacks_list)
-				random.shuffle(seq_files)
+			# seq_files = list(seq_files)
+			# for epoch_id in range(0, epochs):
+			#	for seq_file in seq_files:
+			#		x, y = file_reader(seq_file)
+			#		training_history = model.fit(x, y, callbacks=callbacks_list)
+			#	random.shuffle(seq_files)
 
-
-# workers = max(multiprocessing.cpu_count() // 2, 1)
-# workers = 1
-# max_queue_size = 1
-# print("Using {} worker thread(s) with a max queue size of {}.".format(workers, max_queue_size))
-# training_history = model.fit_generator(data_generator, epochs=epochs, verbose=1, use_multiprocessing=False,
-#									   workers=workers, max_queue_size=max_queue_size, callbacks=callbacks_list)
+			data_generator = FileLoadingDataGenerator(seq_files, file_reader)
+			# workers = max(multiprocessing.cpu_count() // 2, 1)
+			workers = 1
+			max_queue_size = 1
+			print("Using {} worker thread(s) with a max queue size of {}.".format(workers, max_queue_size))
+			training_history = model.fit_generator(data_generator, epochs=epochs, verbose=1, use_multiprocessing=False,
+												   workers=workers, max_queue_size=max_queue_size,
+												   callbacks=callbacks_list)
 
 
 if __name__ == "__main__":
