@@ -73,11 +73,11 @@ class FileLoadingDataGenerator(keras.utils.Sequence):
 		random.shuffle(self.infile_paths)
 
 
-def create_model(maxlen: int, feature_count: int) -> Sequential:
+def create_model(max_length: int, feature_count: int) -> Sequential:
 	result = Sequential()
-	result.add(LSTM(128, input_shape=(maxlen, feature_count)))
+	result.add(LSTM(128, input_shape=(max_length, feature_count)))
 	result.add(Dense(feature_count))
-	# result.add(LSTM(128, input_shape=(maxlen, feature_count), return_sequences=True))
+	# result.add(LSTM(128, input_shape=(max_length, feature_count), return_sequences=True))
 	# result.add(TimeDistributed(Dense(feature_count)))
 	result.add(Activation('softmax'))
 	optimizer = RMSprop(lr=0.01)
@@ -199,7 +199,7 @@ def __main(args):
 		print('Compiling model.')
 		model = create_model(max_length, feature_count)
 		print(model.summary())
-		# epoch_end_hook = EpochEndHook(model, raw_text, chars, char_indices, indices_char, maxlen)
+		# epoch_end_hook = EpochEndHook(model, raw_text, chars, char_indices, indices_char, max_length)
 		# print_callback = LambdaCallback(on_epoch_end=epoch_end_hook)
 
 		# train LSTM
