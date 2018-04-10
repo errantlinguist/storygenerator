@@ -70,7 +70,7 @@ def create_sequences(features: np.array, maxlen: int, sampling_rate: int) -> Tup
 	for i in range(0, len(features) - maxlen, sampling_rate):
 		obs_seqs.append(features[i: i + maxlen])
 		next_chars.append(features[i + maxlen])
-	print('nb sequences:', len(obs_seqs))
+	print("Created {} sequence(s).".format(len(obs_seqs)))
 	return obs_seqs, next_chars
 
 
