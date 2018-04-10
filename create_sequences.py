@@ -12,7 +12,7 @@ import argparse
 import csv
 import math
 import os
-from typing import Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Tuple
 
 import numpy as np
 
@@ -26,19 +26,17 @@ class MetadataWriter(object):
 	OUTPUT_FILENAME = "metadata.tsv"
 	OUTPUT_CSV_DIALECT = csv.excel_tab
 
-	def __init__(self, max_length: int, sampling_rate: int, batch_size: int):
-		self.max_length = max_length
-		self.sampling_rate = sampling_rate
-		self.batch_size = batch_size
+	def __init__(self, metadata: Dict[str, Any]):
+		self.metadata = metadata
 
 	def __call__(self, outdir: str):
 		outpath = os.path.join(outdir, self.OUTPUT_FILENAME)
 		print("Writing sequence metadata to \"{}\".".format(outpath))
+		sorted_items = sorted(self.metadata.items(), key=lambda item: item[0])
 		with open(outpath, 'w') as outf:
 			writer = csv.writer(outf, dialect=self.OUTPUT_CSV_DIALECT)
-			writer.writerow(("max_length", self.max_length))
-			writer.writerow(("sampling_rate", self.sampling_rate))
-			writer.writerow(("batch_size", self.batch_size))
+			for key, value in sorted_items:
+				writer.writerow((key, value))
 
 
 class NPZSequenceWriter(object):
@@ -151,7 +149,8 @@ def __main(args):
 	seq_outdir = os.path.join(outdir, OUTPUT_SEQUENCE_DIRNAME)
 	os.makedirs(seq_outdir, exist_ok=True)
 	print("Writing sequence data to \"{}\".".format(seq_outdir))
-	metadata_writer = MetadataWriter(max_length, sampling_rate, batch_size)
+	metadata = {"max_length": max_length, "sampling_rate": sampling_rate, "batch_size": batch_size}
+	metadata_writer = MetadataWriter(metadata)
 	metadata_writer(seq_outdir)
 	writer = NPZSequenceWriter(seq_outdir, batch_size * 1024 * 1024)
 	for infile in infiles:
