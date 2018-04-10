@@ -19,7 +19,7 @@ import numpy as np
 import extract_features
 from storygenerator.io import NPZFileWalker
 
-OUTPUT_SEQUENCE_DIRNAME = "sequences"
+SEQUENCE_DIR_NAME = "sequences"
 
 
 class MetadataWriter(object):
@@ -142,11 +142,11 @@ def __main(args):
 	print("Maximum length: {}; Sampling rate: {}; Batch size (in MB): {}".format(max_length, sampling_rate, batch_size))
 
 	file_walker = NPZFileWalker()
-	feature_dir = os.path.join(indir, extract_features.OUTPUT_FEATURE_DIRNAME)
+	feature_dir = os.path.join(indir, extract_features.FEATURE_DIR_NAME)
 	print("Reading feature files under \"{}\".".format(feature_dir))
 	infiles = tuple(file_walker(feature_dir))
 	print("Found {} feature file(s).".format(len(infiles)))
-	seq_outdir = os.path.join(outdir, OUTPUT_SEQUENCE_DIRNAME)
+	seq_outdir = os.path.join(outdir, SEQUENCE_DIR_NAME)
 	os.makedirs(seq_outdir, exist_ok=True)
 	print("Writing sequence data to \"{}\".".format(seq_outdir))
 	metadata = {"max_length": max_length, "sampling_rate": sampling_rate, "batch_size": batch_size}

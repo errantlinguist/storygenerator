@@ -26,7 +26,7 @@ import create_sequences
 import extract_features
 from storygenerator.io import FeatureExtractor, NPZFileWalker
 
-MODEL_CHECKPOINT_DIRNAME = "models"
+MODEL_CHECKPOINT_DIR_NAME = "models"
 MODEL_CHECKPOINT_FILENAME_FORMAT = "weights.{epoch:02d}-{loss:.4f}.hdf5"
 
 
@@ -182,11 +182,11 @@ def __main(args):
 	print("Will save model data to \"{}\".".format(outdir))
 	# os.makedirs(outdir, exist_ok=True)
 
-	vocab_filepath = os.path.join(indir, extract_features.OUTPUT_VOCAB_FILENAME)
+	vocab_filepath = os.path.join(indir, extract_features.VOCAB_FILE_NAME)
 	vocab = read_vocab(vocab_filepath)
 	print("Read vocabulary of size {}.".format(len(vocab)))
 
-	seq_dir = os.path.join(indir, create_sequences.OUTPUT_SEQUENCE_DIRNAME)
+	seq_dir = os.path.join(indir, create_sequences.SEQUENCE_DIR_NAME)
 	seq_metadata = read_seq_metadata(seq_dir)
 	assert seq_metadata
 
@@ -194,7 +194,7 @@ def __main(args):
 	seq_files = tuple(file_walker(seq_dir))
 	print("Found {} sequence file(s).".format(len(seq_files)))
 
-	model_checkpoint_outdir = os.path.join(outdir, MODEL_CHECKPOINT_DIRNAME)
+	model_checkpoint_outdir = os.path.join(outdir, MODEL_CHECKPOINT_DIR_NAME)
 	print("Will save model checkpoints to \"{}\".".format(model_checkpoint_outdir))
 	os.makedirs(model_checkpoint_outdir, exist_ok=True)
 
