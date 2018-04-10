@@ -1,6 +1,4 @@
 keras
 nltk
 numpy
-python-magic
-scikit-learn
 tzlocal

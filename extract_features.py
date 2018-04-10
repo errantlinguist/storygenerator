@@ -19,7 +19,7 @@ import tzlocal
 
 import storygenerator.io
 
-INPUT_FILE_MIMETYPE = "text/plain"
+INPUT_FILE_SUFFIX = ".txt"
 FEATURE_DIR_NAME = "features"
 VOCAB_FILE_NAME = "vocab.tsv"
 VOCAB_FILE_CSV_DIALECT = csv.excel_tab
@@ -87,7 +87,7 @@ def __create_argparser() -> argparse.ArgumentParser:
 
 
 def __main(args):
-	file_walker = storygenerator.io.MimetypeFileWalker(lambda mimetype: mimetype == INPUT_FILE_MIMETYPE)
+	file_walker = storygenerator.io.MatchingFileWalker(lambda filepath: filepath.endswith(INPUT_FILE_SUFFIX))
 	outdir = args.outdir
 	print("Will write output files to \"{}\".".format(outdir))
 
