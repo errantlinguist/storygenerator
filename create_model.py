@@ -28,24 +28,6 @@ from storygenerator.io import OUTPUT_VOCAB_FILENAME, FeatureExtractor, NPZFileWa
 MODEL_CHECKPOINT_DIRNAME = "models"
 
 
-# WARNING: There is some sort of memory leak when using this class
-# class FileLoadingDataGenerator(keras.utils.Sequence):
-#
-#	def __init__(self, infile_paths: Sequence[str]):
-#		self.infile_paths = list(infile_paths)
-#
-#	def __len__(self) -> int:
-#		return len(self.infile_paths)
-#
-#	def __getitem__(self, idx: int) -> Tuple[np.ndarray, np.ndarray]:
-#		infile_path = self.infile_paths[idx]
-#		x, y = read_file(infile_path)
-#		return x, y
-#
-#	def on_epoch_end(self):
-#		random.shuffle(self.infile_paths)
-
-
 class CachingFileReader(object):
 	def __init__(self, cache_dirpath: str):
 		self.cache_dirpath = cache_dirpath
@@ -66,6 +48,24 @@ class CachingFileReader(object):
 			np.save(cached_filepath_y, y)
 
 		return x, y
+
+
+# WARNING: There is some sort of memory leak when using this class
+# class FileLoadingDataGenerator(keras.utils.Sequence):
+#
+#	def __init__(self, infile_paths: Sequence[str]):
+#		self.infile_paths = list(infile_paths)
+#
+#	def __len__(self) -> int:
+#		return len(self.infile_paths)
+#
+#	def __getitem__(self, idx: int) -> Tuple[np.ndarray, np.ndarray]:
+#		infile_path = self.infile_paths[idx]
+#		x, y = read_file(infile_path)
+#		return x, y
+#
+#	def on_epoch_end(self):
+#		random.shuffle(self.infile_paths)
 
 
 def create_model(maxlen: int, feature_count: int) -> Sequential:
