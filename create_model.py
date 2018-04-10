@@ -55,7 +55,11 @@ class CachingFileReader(object):
 
 class FileLoadingDataGenerator(keras.utils.Sequence):
 	"""
-	WARNING: There is some sort of memory leak when using this class
+	WARNING: There is some sort of memory leak when using this class:
+	https://github.com/keras-team/keras/issues/3675
+	https://github.com/keras-team/keras/issues/3912
+	https://github.com/keras-team/keras/issues/6584
+	https://github.com/keras-team/keras/issues/8668
 	"""
 
 	def __init__(self, infile_paths: Sequence[str], file_reader: Callable[[str], Tuple[np.array, np.array]]):
