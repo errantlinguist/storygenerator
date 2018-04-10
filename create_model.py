@@ -173,7 +173,7 @@ def __main(args):
 	print("Will read data from \"{}\".".format(indir))
 	outdir = args.outdir
 	print("Will save model data to \"{}\".".format(outdir))
-	os.makedirs(outdir, exist_ok=True)
+	#os.makedirs(outdir, exist_ok=True)
 
 	vocab_filepath = os.path.join(indir, OUTPUT_VOCAB_FILENAME)
 	vocab = read_vocab(vocab_filepath)
