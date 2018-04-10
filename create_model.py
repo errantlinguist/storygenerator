@@ -91,6 +91,7 @@ def read_file(infile_path: str) -> Tuple[np.array, np.array]:
 		x = archive["x"]
 		assert x.size > 0
 		y = archive["y"]
+		assert y.size > 0
 		# Don't touch this: The shape of the two arrays is likely different in dimensionality
 		assert x.shape[0] == y.shape[0]
 		assert x.shape[-1] == y.shape[-1]
