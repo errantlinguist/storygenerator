@@ -38,7 +38,6 @@ class CachingFileReader(object):
 		common_path = os.path.commonpath((self.cache_dirpath, infile_path))
 		relative_path = os.path.relpath(infile_path, common_path)
 		cached_filepath_base = os.path.join(self.cache_dirpath, relative_path)
-		os.makedirs(os.path.dirname(cached_filepath_base), exist_ok=True)
 		cached_filepath_x = cached_filepath_base + ".x"
 		cached_filepath_y = cached_filepath_base + ".y"
 		try:
@@ -46,6 +45,7 @@ class CachingFileReader(object):
 			y = np.load(cached_filepath_y, mmap_mode='r')
 		except FileNotFoundError:
 			x, y = read_file(infile_path)
+			os.makedirs(os.path.dirname(cached_filepath_base), exist_ok=True)
 			np.save(cached_filepath_x, x)
 			np.save(cached_filepath_y, y)
 
