@@ -123,7 +123,7 @@ def __main(args):
 
 	vocab_filepath = os.path.join(indir, OUTPUT_VOCAB_FILENAME)
 	vocab = read_vocab(vocab_filepath)
-	print("Read vocabulary of size {}".format(len(vocab)))
+	print("Read vocabulary of size {}.".format(len(vocab)))
 
 	file_walker = NPZFileWalker()
 	feature_dir = os.path.join(indir, OUTPUT_FEATURE_DIRNAME)
