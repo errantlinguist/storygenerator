@@ -118,6 +118,8 @@ class TextChapterReader(object):
             if chap.pars:
                 result.append(chap)
 
+        if not result:
+            raise ValueError("Could not parse chapters from \"{}\".".format(inpath))
         return result
 
     def parse_chapter_header(self, line: str) -> Tuple[int, Optional[int], str]:
