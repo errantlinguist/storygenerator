@@ -144,6 +144,7 @@ def __main(args):
 
 	model_checkpoint_outdir = os.path.join(outdir, MODEL_CHECKPOINT_DIRNAME)
 	print("Will save model checkpoints to \"{}\".".format(model_checkpoint_outdir))
+	os.makedirs(model_checkpoint_outdir, exist_ok=True)
 
 	# https://stackoverflow.com/a/43472000/1391325
 	with keras.backend.get_session():
