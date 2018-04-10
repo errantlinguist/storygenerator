@@ -130,6 +130,38 @@ def __create_argparser() -> argparse.ArgumentParser:
 	return result
 
 
+def __train_generator(model: Sequential, seq_files: Sequence[str],
+					  file_reader: Callable[[str], Tuple[np.array, np.array]], epochs: int,
+					  model_checkpoint_outdir: str):
+	filepath = os.path.join(model_checkpoint_outdir, "weights-improvement-{epoch:02d}-{loss:.4f}.hdf5")
+	# define the checkpoint
+	checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
+	callbacks_list = [checkpoint]
+	data_generator = FileLoadingDataGenerator(seq_files, file_reader)
+	# workers = max(multiprocessing.cpu_count() // 2, 1)
+	workers = 1
+	max_queue_size = 1
+	print("Using {} worker thread(s) with a max queue size of {}.".format(workers, max_queue_size))
+	training_history = model.fit_generator(data_generator, epochs=epochs, verbose=1, use_multiprocessing=False,
+										   workers=workers, max_queue_size=max_queue_size,
+										   callbacks=callbacks_list)
+
+
+def __train_iteratively(model: Sequential, seq_files: Sequence[str],
+						file_reader: Callable[[str], Tuple[np.array, np.array]], epochs: int,
+						model_checkpoint_outdir: str):
+	filepath = os.path.join(model_checkpoint_outdir, "weights-improvement-{epoch:02d}-{loss:.4f}.hdf5")
+	# define the checkpoint
+	checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
+	callbacks_list = [checkpoint]
+	seq_files = list(seq_files)
+	for epoch_id in range(0, epochs):
+		for seq_file in seq_files:
+			x, y = file_reader(seq_file)
+			training_history = model.fit(x, y, initial_epoch=epoch_id, epochs=epoch_id, callbacks=callbacks_list)
+		random.shuffle(seq_files)
+
+
 def __main(args):
 	random_seed = args.random_seed
 	print("Setting random seed to {}.".format(random_seed))
@@ -165,14 +197,12 @@ def __main(args):
 	# https://stackoverflow.com/a/43472000/1391325
 	with keras.backend.get_session():
 		# build the model: a single LSTM
-		print('Build model...')
+		print('Compiling model.')
 		model = create_model(max_length, feature_count)
+		print(model.summary())
 		# epoch_end_hook = EpochEndHook(model, raw_text, chars, char_indices, indices_char, maxlen)
 		# print_callback = LambdaCallback(on_epoch_end=epoch_end_hook)
-		# define the checkpoint
-		filepath = os.path.join(model_checkpoint_outdir, "weights-improvement-{epoch:02d}-{loss:.4f}.hdf5")
-		checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
-		callbacks_list = [checkpoint]
+
 		# train LSTM
 		epochs = args.epochs
 		print("Training model using {} epoch(s).".format(epochs))
@@ -184,21 +214,8 @@ def __main(args):
 		with tempfile.TemporaryDirectory() as tmpdir_path:
 			print("Will cache array data to \"{}\".".format(tmpdir_path))
 			file_reader = CachingFileReader(tmpdir_path)
-			# seq_files = list(seq_files)
-			# for epoch_id in range(0, epochs):
-			#	for seq_file in seq_files:
-			#		x, y = file_reader(seq_file)
-			#		training_history = model.fit(x, y, callbacks=callbacks_list)
-			#	random.shuffle(seq_files)
-
-			data_generator = FileLoadingDataGenerator(seq_files, file_reader)
-			# workers = max(multiprocessing.cpu_count() // 2, 1)
-			workers = 1
-			max_queue_size = 1
-			print("Using {} worker thread(s) with a max queue size of {}.".format(workers, max_queue_size))
-			training_history = model.fit_generator(data_generator, epochs=epochs, verbose=1, use_multiprocessing=False,
-												   workers=workers, max_queue_size=max_queue_size,
-												   callbacks=callbacks_list)
+			# __train_generator(model, seq_files, file_reader, epochs, model_checkpoint_outdir)
+			__train_iteratively(model, seq_files, file_reader, epochs, model_checkpoint_outdir)
 
 
 if __name__ == "__main__":
