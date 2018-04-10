@@ -9,10 +9,11 @@ __copyright__ = "Copyright (C) 2018 Todd Shore"
 __license__ = "Apache License, Version 2.0"
 
 import argparse
-import multiprocessing
+import csv
 import os
 import random
-from typing import Iterable, List, Sequence, Tuple
+import tempfile
+from typing import Any, Dict, Iterable, Iterator, Tuple
 
 import keras.preprocessing.sequence
 import numpy as np
@@ -21,30 +22,49 @@ from keras.layers import Activation, Dense, LSTM
 from keras.models import Sequential
 from keras.optimizers import RMSprop
 
-from extract_features import OUTPUT_FEATURE_DIRNAME
+import create_sequences
 from storygenerator.io import OUTPUT_VOCAB_FILENAME, FeatureExtractor, NPZFileWalker, read_vocab
 
 MODEL_CHECKPOINT_DIRNAME = "models"
 
 
-class FileLoadingDataGenerator(keras.utils.Sequence):
+# WARNING: There is some sort of memory leak when using this class
+# class FileLoadingDataGenerator(keras.utils.Sequence):
+#
+#	def __init__(self, infile_paths: Sequence[str]):
+#		self.infile_paths = list(infile_paths)
+#
+#	def __len__(self) -> int:
+#		return len(self.infile_paths)
+#
+#	def __getitem__(self, idx: int) -> Tuple[np.ndarray, np.ndarray]:
+#		infile_path = self.infile_paths[idx]
+#		x, y = read_file(infile_path)
+#		return x, y
+#
+#	def on_epoch_end(self):
+#		random.shuffle(self.infile_paths)
 
-	def __init__(self, infile_paths: Sequence[str], maxlen: int, feature_count: int, sampling_rate: int):
-		self.infile_paths = infile_paths
-		self.maxlen = maxlen
-		self.feature_count = feature_count
-		self.sampling_rate = sampling_rate
 
-	def __len__(self) -> int:
-		return len(self.infile_paths)
+class CachingFileReader(object):
+	def __init__(self, cache_dirpath: str):
+		self.cache_dirpath = cache_dirpath
 
-	def __getitem__(self, idx: int) -> Tuple[np.ndarray, np.ndarray]:
-		infile_path = self.infile_paths[idx]
-		x, y = read_file(infile_path, self.maxlen, self.sampling_rate)
-		return np.asarray(x), np.asarray(y)
+	def __call__(self, infile_path: str) -> Tuple[np.array, np.array]:
+		common_path = os.path.commonpath((self.cache_dirpath, infile_path))
+		relative_path = os.path.relpath(infile_path, common_path)
+		cached_filepath_base = os.path.join(self.cache_dirpath, relative_path)
+		cached_filepath_x = cached_filepath_base + ".x"
+		cached_filepath_y = cached_filepath_base + ".y"
+		try:
+			x = np.load(cached_filepath_x, mmap_mode='r')
+			y = np.load(cached_filepath_y, mmap_mode='r')
+		except FileNotFoundError:
+			x, y = read_file(infile_path)
+			np.save(cached_filepath_x, x)
+			np.save(cached_filepath_y, y)
 
-	def on_epoch_end(self):
-		pass
+		return x, y
 
 
 def create_model(maxlen: int, feature_count: int) -> Sequential:
@@ -59,39 +79,37 @@ def create_model(maxlen: int, feature_count: int) -> Sequential:
 	return result
 
 
-def create_sequences(features: np.array, maxlen: int, sampling_rate: int) -> Tuple[
-	List[np.array], List[np.array]]:
-	# cut the text in semi-redundant sequences of maxlen characters
-	obs_seqs = []
-	next_chars = []
-	for i in range(0, len(features) - maxlen, sampling_rate):
-		obs_seqs.append(features[i: i + maxlen])
-		next_chars.append(features[i + maxlen])
-	print('nb sequences:', len(obs_seqs))
-	return obs_seqs, next_chars
-
-
-def read_file(infile_path: str, maxlen: int, sampling_rate: int) -> Tuple[List[np.array], List[np.array]]:
+def read_file(infile_path: str) -> Tuple[np.array, np.array]:
 	print("Loading data from \"{}\".".format(infile_path))
-	x = []
-	y = []
 	with np.load(infile_path) as archive:
-		for (_, arr) in archive.iteritems():
-			obs_seqs, next_chars = create_sequences(arr, maxlen, sampling_rate)
-			x.extend(obs_seqs)
-			y.extend(next_chars)
+		x = archive["x"]
+		assert x.size > 0
+		y = archive["y"]
+		# Don't touch this: The shape of the two arrays is likely different in dimensionality
+		assert x.shape[0] == y.shape[0]
+		assert x.shape[-1] == y.shape[-1]
+		return x, y
 
-	return x, y
 
-
-def read_files(infile_paths: Iterable[str], maxlen: int, sampling_rate: int) -> Tuple[List[np.array], List[np.array]]:
-	x = []
-	y = []
+def read_files(infile_paths: Iterable[str]) -> Iterator[Tuple[np.array, np.array]]:
 	for infile_path in infile_paths:
-		obs_seqs, next_chars = read_file(infile_path, maxlen, sampling_rate)
-		x.extend(obs_seqs)
-		y.extend(next_chars)
-	return x, y
+		x, y = read_file(infile_path)
+		yield x, y
+
+
+def read_seq_metadata(seq_dir: str) -> Dict[str, Any]:
+	result = {}
+	infile_path = os.path.join(seq_dir, create_sequences.MetadataWriter.OUTPUT_FILENAME)
+	print("Reading sequence metadata from \"{}\".".format(infile_path))
+	with open(infile_path, 'w') as inf:
+		reader = csv.reader(inf, dialect=create_sequences.MetadataWriter.OUTPUT_CSV_DIALECT)
+		for row in reader:
+			assert len(row) == 2
+			key = row[0]
+			value = row[1]
+			result[key] = value
+
+	return result
 
 
 def __create_argparser() -> argparse.ArgumentParser:
@@ -125,32 +143,28 @@ def __main(args):
 	vocab = read_vocab(vocab_filepath)
 	print("Read vocabulary of size {}.".format(len(vocab)))
 
+	seq_dir = os.path.join(indir, create_sequences.OUTPUT_SEQUENCE_DIRNAME)
+	seq_metadata = read_seq_metadata(seq_dir)
+	assert seq_metadata
+
 	file_walker = NPZFileWalker()
-	feature_dir = os.path.join(indir, OUTPUT_FEATURE_DIRNAME)
-	print("Reading feature files under \"{}\".".format(feature_dir))
-	feature_files = tuple(file_walker(feature_dir))
-	print("Found {} feature file(s).".format(len(feature_files)))
-	feature_count = FeatureExtractor.feature_count(vocab)
-	maxlen = 40
-	sampling_rate = 3
-	# x, y = read_files(feature_files, maxlen, sampling_rate)
-	# x = np.asarray(x)
-	# print(x.shape)
-	# y = np.asarray(y)
-	# print(y.shape)
-	# x = keras.preprocessing.sequence.pad_sequences(x, maxlen=maxlen, dtype='bool')
-	# y = keras.preprocessing.sequence.pad_sequences(y, maxlen=maxlen, dtype='bool')
-	data_generator = FileLoadingDataGenerator(feature_files, maxlen, feature_count, sampling_rate)
+
+	seq_files = tuple(file_walker(seq_dir))
+	print("Found {} sequence file(s).".format(len(seq_files)))
+
+	# data_generator = FileLoadingDataGenerator(feature_files)
 
 	model_checkpoint_outdir = os.path.join(outdir, MODEL_CHECKPOINT_DIRNAME)
 	print("Will save model checkpoints to \"{}\".".format(model_checkpoint_outdir))
 	os.makedirs(model_checkpoint_outdir, exist_ok=True)
 
+	max_length = seq_metadata["max_length"]
+	feature_count = FeatureExtractor.feature_count(vocab)
 	# https://stackoverflow.com/a/43472000/1391325
 	with keras.backend.get_session():
 		# build the model: a single LSTM
 		print('Build model...')
-		model = create_model(maxlen, feature_count)
+		model = create_model(max_length, feature_count)
 		# epoch_end_hook = EpochEndHook(model, raw_text, chars, char_indices, indices_char, maxlen)
 		# print_callback = LambdaCallback(on_epoch_end=epoch_end_hook)
 		# define the checkpoint
@@ -164,12 +178,24 @@ def __main(args):
 		#		  #batch_seq_count=128,
 		#		  epochs=epochs,
 		#		  callbacks=callbacks_list)
-		workers = max(multiprocessing.cpu_count() // 2, 1)
-		workers = 1
-		max_queue_size = 1
-		print("Using {} worker thread(s) with a max queue size of {}.".format(workers, max_queue_size))
-		training_history = model.fit_generator(data_generator, epochs=epochs, verbose=1, use_multiprocessing=False,
-											   workers=workers, max_queue_size=max_queue_size, callbacks=callbacks_list)
+
+		with tempfile.TemporaryDirectory() as tmpdir_path:
+			print("Will cache array data to \"{}\".".format(tmpdir_path))
+			file_reader = CachingFileReader(tmpdir_path)
+			seq_files = list(seq_files)
+			for epoch_id in range(0, epochs):
+				for seq_file in seq_files:
+					x, y = file_reader(seq_file)
+					training_history = model.fit(x, y, callbacks=callbacks_list)
+				random.shuffle(seq_files)
+
+
+# workers = max(multiprocessing.cpu_count() // 2, 1)
+# workers = 1
+# max_queue_size = 1
+# print("Using {} worker thread(s) with a max queue size of {}.".format(workers, max_queue_size))
+# training_history = model.fit_generator(data_generator, epochs=epochs, verbose=1, use_multiprocessing=False,
+#									   workers=workers, max_queue_size=max_queue_size, callbacks=callbacks_list)
 
 
 if __name__ == "__main__":
