@@ -83,23 +83,6 @@ class MatchingFileWalker(object):
                 yield inpath
 
 
-class NPZFileWalker(object):
-    FILE_EXTENSION_PATTERN = re.compile("\.npz", re.IGNORECASE)
-
-    @classmethod
-    def is_file(cls, path: str) -> bool:
-        ext = os.path.splitext(path)[1]
-        match = cls.FILE_EXTENSION_PATTERN.match(ext)
-        return bool(match)
-
-    def __call__(self, indir: str) -> Iterator[str]:
-        for root, dirs, files in os.walk(indir, followlinks=True):
-            for file in files:
-                filepath = os.path.join(root, file)
-                if self.is_file(filepath):
-                    yield filepath
-
-
 class TextChapterReader(object):
 
     def __init__(self, part_name_ordinality_mapper: Optional[Callable[[str], int]] = None):

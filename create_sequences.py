@@ -17,8 +17,9 @@ from typing import Any, Dict, Iterable, List, Tuple
 import numpy as np
 
 import extract_features
-from storygenerator.io import NPZFileWalker
+from storygenerator.io import MatchingFileWalker
 
+FEATURE_FILE_SUFFIX = ".npz"
 SEQUENCE_DIR_NAME = "sequences"
 
 
@@ -140,7 +141,7 @@ def __main(args):
 	batch_size = args.memory
 	print("Maximum length: {}; Sampling rate: {}; Batch size (in MB): {}".format(max_length, sampling_rate, batch_size))
 
-	file_walker = NPZFileWalker()
+	file_walker = MatchingFileWalker(lambda filepath: filepath.endswith(FEATURE_FILE_SUFFIX))
 	feature_dir = os.path.join(indir, extract_features.FEATURE_DIR_NAME)
 	print("Reading feature files under \"{}\".".format(feature_dir))
 	infiles = tuple(file_walker(feature_dir))
