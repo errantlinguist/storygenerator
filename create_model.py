@@ -13,7 +13,7 @@ import csv
 import os
 import random
 import tempfile
-from typing import Any, Callable, Dict, Iterable, Iterator, Sequence, Tuple
+from typing import Any, Callable, Dict, Sequence, Tuple
 
 import keras.preprocessing.sequence
 import numpy as np
@@ -95,12 +95,6 @@ def read_file(infile_path: str) -> Tuple[np.array, np.array]:
 		assert x.shape[0] == y.shape[0]
 		assert x.shape[-1] == y.shape[-1]
 		return x, y
-
-
-def read_files(infile_paths: Iterable[str]) -> Iterator[Tuple[np.array, np.array]]:
-	for infile_path in infile_paths:
-		x, y = read_file(infile_path)
-		yield x, y
 
 
 def read_seq_metadata(seq_dir: str) -> Dict[str, Any]:
