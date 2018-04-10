@@ -156,9 +156,11 @@ def __train_iteratively(model: Sequential, seq_files: Sequence[str],
 	callbacks_list = [checkpoint]
 	seq_files = list(seq_files)
 	for epoch_id in range(0, epochs):
-		for seq_file in seq_files:
+		batch_start = epoch_id * len(seq_files)
+		for seq_file_idx, seq_file in enumerate(seq_files):
+			batch_epoch_id = batch_start + seq_file_idx
 			x, y = file_reader(seq_file)
-			training_history = model.fit(x, y, initial_epoch=epoch_id, epochs=epoch_id, callbacks=callbacks_list)
+			training_history = model.fit(x, y, initial_epoch=batch_epoch_id, epochs=batch_epoch_id + 1, callbacks=callbacks_list)
 		random.shuffle(seq_files)
 
 
