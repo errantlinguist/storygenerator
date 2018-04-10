@@ -8,7 +8,7 @@ __license__ = "Apache License, Version 2.0"
 
 import os
 import re
-from typing import Callable, Iterable, Iterator, Optional, Sequence, Tuple
+from typing import Callable, Iterable, Iterator, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -89,7 +89,7 @@ class TextChapterReader(object):
         self.part_name_ordinality_mapper = part_name_ordinality_mapper if part_name_ordinality_mapper is not None else lambda \
                 part_desc: DEFAULT_PART_NAME_ORDINALITIES[part_desc]
 
-    def __call__(self, inpath: str):
+    def __call__(self, inpath: str) -> List[Chapter]:
         result = []
 
         with open(inpath, 'r') as inf:
