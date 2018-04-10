@@ -101,6 +101,11 @@ class TextChapterReader(object):
                 if line:
                     chap_end_m = CHAPTER_DELIM_PATTERN.match(line)
                     if chap_end_m:
+                        if not chap.pars:
+                            raise ValueError(
+                                "Could not parse any paragraphs for chapter {}-{}, titled \"{}\".".format(chap.part,
+                                                                                                          chap.seq,
+                                                                                                          chap.title))
                         result.append(chap)
                         chap = Chapter(-2)
                         parsed_chap_header = False
