@@ -26,6 +26,7 @@ import create_sequences
 from storygenerator.io import OUTPUT_VOCAB_FILENAME, FeatureExtractor, NPZFileWalker, read_vocab
 
 MODEL_CHECKPOINT_DIRNAME = "models"
+MODEL_CHECKPOINT_FILENAME_FORMAT = "weights.{epoch:02d}-{loss:.4f}.hdf5"
 
 
 class CachingFileReader(object):
@@ -133,9 +134,9 @@ def __create_argparser() -> argparse.ArgumentParser:
 def __train_generator(model: Sequential, seq_files: Sequence[str],
 					  file_reader: Callable[[str], Tuple[np.array, np.array]], epochs: int,
 					  model_checkpoint_outdir: str):
-	filepath = os.path.join(model_checkpoint_outdir, "weights-improvement-{epoch:02d}-{loss:.4f}.hdf5")
+	filepath = os.path.join(model_checkpoint_outdir, MODEL_CHECKPOINT_FILENAME_FORMAT)
 	# define the checkpoint
-	checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
+	checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True)
 	callbacks_list = [checkpoint]
 	data_generator = FileLoadingDataGenerator(seq_files, file_reader)
 	# workers = max(multiprocessing.cpu_count() // 2, 1)
@@ -150,9 +151,9 @@ def __train_generator(model: Sequential, seq_files: Sequence[str],
 def __train_iteratively(model: Sequential, seq_files: Sequence[str],
 						file_reader: Callable[[str], Tuple[np.array, np.array]], epochs: int,
 						model_checkpoint_outdir: str):
-	filepath = os.path.join(model_checkpoint_outdir, "weights-improvement-{epoch:02d}-{loss:.4f}.hdf5")
+	filepath = os.path.join(model_checkpoint_outdir, MODEL_CHECKPOINT_FILENAME_FORMAT)
 	# define the checkpoint
-	checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, mode='min')
+	checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True)
 	callbacks_list = [checkpoint]
 	seq_files = list(seq_files)
 	for epoch_id in range(0, epochs):
@@ -160,7 +161,8 @@ def __train_iteratively(model: Sequential, seq_files: Sequence[str],
 		for seq_file_idx, seq_file in enumerate(seq_files):
 			batch_epoch_id = batch_start + seq_file_idx
 			x, y = file_reader(seq_file)
-			training_history = model.fit(x, y, initial_epoch=batch_epoch_id, epochs=batch_epoch_id + 1, callbacks=callbacks_list)
+			training_history = model.fit(x, y, initial_epoch=batch_epoch_id, epochs=batch_epoch_id + 1,
+										 callbacks=callbacks_list)
 		random.shuffle(seq_files)
 
 
