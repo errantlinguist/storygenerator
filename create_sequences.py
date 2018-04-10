@@ -9,6 +9,7 @@ __copyright__ = "Copyright (C) 2018 Todd Shore"
 __license__ = "Apache License, Version 2.0"
 
 import argparse
+import csv
 import math
 import os
 from typing import Iterable, List, Tuple
@@ -19,6 +20,25 @@ import extract_features
 from storygenerator.io import NPZFileWalker
 
 OUTPUT_SEQUENCE_DIRNAME = "sequences"
+
+
+class MetadataWriter(object):
+	OUTPUT_FILENAME = "metadata.tsv"
+	OUTPUT_CSV_DIALECT = csv.excel_tab
+
+	def __init__(self, max_length: int, sampling_rate: int, batch_size: int):
+		self.max_length = max_length
+		self.sampling_rate = sampling_rate
+		self.batch_size = batch_size
+
+	def __call__(self, outdir: str):
+		outpath = os.path.join(outdir, self.OUTPUT_FILENAME)
+		print("Writing sequence metadata to \"{}\".".format(outpath))
+		with open(outpath, 'w') as outf:
+			writer = csv.writer(outf, dialect=self.OUTPUT_CSV_DIALECT)
+			writer.writerow(("max_length", self.max_length))
+			writer.writerow(("sampling_rate", self.sampling_rate))
+			writer.writerow(("batch_size", self.batch_size))
 
 
 class NPZSequenceWriter(object):
@@ -62,36 +82,37 @@ class NPZSequenceWriter(object):
 			next_batch_id += 1
 
 
-def create_sequences(features: np.array, maxlen: int, sampling_rate: int) -> Tuple[
+def create_sequences(features: np.array, max_length: int, sampling_rate: int) -> Tuple[
 	List[np.array], List[np.array]]:
-	# cut the text in semi-redundant sequences of maxlen characters
+	# cut the text in semi-redundant sequences of max_length characters
 	obs_seqs = []
 	next_chars = []
-	for i in range(0, len(features) - maxlen, sampling_rate):
-		obs_seqs.append(features[i: i + maxlen])
-		next_chars.append(features[i + maxlen])
+	for i in range(0, len(features) - max_length, sampling_rate):
+		obs_seqs.append(features[i: i + max_length])
+		next_chars.append(features[i + max_length])
 	print("Created {} sequence(s).".format(len(obs_seqs)))
 	return obs_seqs, next_chars
 
 
-def read_file(infile_path: str, maxlen: int, sampling_rate: int) -> Tuple[List[np.array], List[np.array]]:
+def read_file(infile_path: str, max_length: int, sampling_rate: int) -> Tuple[List[np.array], List[np.array]]:
 	print("Loading data from \"{}\".".format(infile_path))
 	x = []
 	y = []
 	with np.load(infile_path) as archive:
 		for (_, arr) in archive.iteritems():
-			obs_seqs, next_chars = create_sequences(arr, maxlen, sampling_rate)
+			obs_seqs, next_chars = create_sequences(arr, max_length, sampling_rate)
 			x.extend(obs_seqs)
 			y.extend(next_chars)
 
 	return x, y
 
 
-def read_files(infile_paths: Iterable[str], maxlen: int, sampling_rate: int) -> Tuple[List[np.array], List[np.array]]:
+def read_files(infile_paths: Iterable[str], max_length: int, sampling_rate: int) -> Tuple[
+	List[np.array], List[np.array]]:
 	x = []
 	y = []
 	for infile_path in infile_paths:
-		obs_seqs, next_chars = read_file(infile_path, maxlen, sampling_rate)
+		obs_seqs, next_chars = read_file(infile_path, max_length, sampling_rate)
 		x.extend(obs_seqs)
 		y.extend(next_chars)
 	return x, y
@@ -117,10 +138,10 @@ def __main(args):
 	print("Will read data from \"{}\".".format(indir))
 	outdir = args.outdir
 	print("Will save sequence data to \"{}\".".format(outdir))
-	maxlen = args.max_length
+	max_length = args.max_length
 	sampling_rate = args.sampling_rate
 	batch_size = args.memory
-	print("Maximum length: {}; Sampling rate: {}; Batch size (in MB): {}".format(maxlen, sampling_rate, batch_size))
+	print("Maximum length: {}; Sampling rate: {}; Batch size (in MB): {}".format(max_length, sampling_rate, batch_size))
 
 	file_walker = NPZFileWalker()
 	feature_dir = os.path.join(indir, extract_features.OUTPUT_FEATURE_DIRNAME)
@@ -130,9 +151,11 @@ def __main(args):
 	seq_outdir = os.path.join(outdir, OUTPUT_SEQUENCE_DIRNAME)
 	os.makedirs(seq_outdir, exist_ok=True)
 	print("Writing sequence data to \"{}\".".format(seq_outdir))
+	metadata_writer = MetadataWriter(max_length, sampling_rate, batch_size)
+	metadata_writer(seq_outdir)
 	writer = NPZSequenceWriter(seq_outdir, batch_size * 1024 * 1024)
 	for infile in infiles:
-		x, y = read_file(infile, maxlen, sampling_rate)
+		x, y = read_file(infile, max_length, sampling_rate)
 		writer(infile, np.asarray(x), np.asarray(y))
 
 
