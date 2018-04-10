@@ -13,7 +13,7 @@ import csv
 import os
 import random
 import tempfile
-from typing import Any, Callable, Dict, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Sequence, Tuple
 
 import keras.preprocessing.sequence
 import numpy as np
@@ -23,7 +23,8 @@ from keras.models import Sequential
 from keras.optimizers import RMSprop
 
 import create_sequences
-from storygenerator.io import OUTPUT_VOCAB_FILENAME, FeatureExtractor, NPZFileWalker, read_vocab
+import extract_features
+from storygenerator.io import FeatureExtractor, NPZFileWalker
 
 MODEL_CHECKPOINT_DIRNAME = "models"
 MODEL_CHECKPOINT_FILENAME_FORMAT = "weights.{epoch:02d}-{loss:.4f}.hdf5"
@@ -113,6 +114,12 @@ def read_seq_metadata(seq_dir: str) -> Dict[str, Any]:
 	return result
 
 
+def read_vocab(infile: str) -> List[str]:
+	with open(infile, 'r') as inf:
+		reader = csv.reader(inf, dialect=extract_features.VOCAB_FILE_CSV_DIALECT)
+		return next(reader)
+
+
 def __create_argparser() -> argparse.ArgumentParser:
 	result = argparse.ArgumentParser(
 		description="Creates a language model for generating prose.")
@@ -173,9 +180,9 @@ def __main(args):
 	print("Will read data from \"{}\".".format(indir))
 	outdir = args.outdir
 	print("Will save model data to \"{}\".".format(outdir))
-	#os.makedirs(outdir, exist_ok=True)
+	# os.makedirs(outdir, exist_ok=True)
 
-	vocab_filepath = os.path.join(indir, OUTPUT_VOCAB_FILENAME)
+	vocab_filepath = os.path.join(indir, extract_features.OUTPUT_VOCAB_FILENAME)
 	vocab = read_vocab(vocab_filepath)
 	print("Read vocabulary of size {}.".format(len(vocab)))
 
