@@ -20,7 +20,7 @@ import extract_features
 from storygenerator.io import MatchingFileWalker
 
 DEFAULT_MAX_LENGTH = 60
-DEFAULT_BATCH_MEMORY = 1024
+DEFAULT_BATCH_MEMORY = float('inf')
 DEFAULT_SAMPLING_RATE = 3
 
 FEATURE_FILE_SUFFIX = ".npz"
@@ -60,10 +60,7 @@ class NPZSequenceWriter(object):
 
 		total_size = x.nbytes + y.nbytes
 		# print("Total size in MB: {}".format(total_size / 1024 / 1024))
-		try:
-			batch_count = max(1, int(math.ceil(total_size / self.batch_size)))
-		except ZeroDivisionError:
-			batch_count = 1
+		batch_count = max(1, int(math.ceil(total_size / self.batch_size)))
 		print("Splitting data from \"{}\" into {} batch(es).".format(infile, batch_count))
 		rows_per_batch = math.ceil(x.shape[0] / batch_count)
 		remaining_row_count = x.shape[0]
@@ -118,9 +115,23 @@ def __create_argparser() -> argparse.ArgumentParser:
 	result.add_argument("-s", "--sampling-rate", dest="sampling_rate", metavar="RATE", type=int,
 						default=DEFAULT_SAMPLING_RATE,
 						help="The sequence sampling rate to use.")
-	result.add_argument("-m", "--memory", metavar="MBYTES", type=int, default=DEFAULT_BATCH_MEMORY,
+	result.add_argument("-m", "--memory", metavar="MBYTES", type=__positive_float, default=DEFAULT_BATCH_MEMORY,
 						help="The maximum size of a sequence training batch in megabytes.")
 	return result
+
+
+def __positive_float(string: str) -> float:
+	"""
+	See https://stackoverflow.com/a/8107776/1391325
+	:param string: The string to parse.
+	:return: A positive, non-NaN value.
+	"""
+	value = float(string)
+	if math.isnan(value):
+		raise argparse.ArgumentTypeError('Value must not be NaN.')
+	elif value <= 0.0:
+		raise argparse.ArgumentTypeError('Value must be positive.')
+	return value
 
 
 def __main(args):
@@ -130,8 +141,11 @@ def __main(args):
 	print("Will save sequence data to \"{}\".".format(outdir))
 	max_length = args.max_length
 	sampling_rate = args.sampling_rate
-	batch_size = args.memory
-	print("Maximum length: {}; Sampling rate: {}; Batch size (in MB): {}".format(max_length, sampling_rate, batch_size))
+	batch_memory = args.memory
+	if batch_memory <= 0.0:
+		raise ValueError
+	print(
+		"Maximum length: {}; Sampling rate: {}; Batch size (in MB): {}".format(max_length, sampling_rate, batch_memory))
 
 	file_walker = MatchingFileWalker(lambda filepath: filepath.endswith(FEATURE_FILE_SUFFIX))
 	feature_dir = os.path.join(indir, extract_features.FEATURE_DIR_NAME)
@@ -141,10 +155,10 @@ def __main(args):
 	seq_outdir = os.path.join(outdir, SEQUENCE_DIR_NAME)
 	os.makedirs(seq_outdir, exist_ok=True)
 	print("Writing sequence data to \"{}\".".format(seq_outdir))
-	metadata = {"max_length": max_length, "sampling_rate": sampling_rate, "batch_size": batch_size}
+	metadata = {"max_length": max_length, "sampling_rate": sampling_rate, "batch_memory": batch_memory}
 	metadata_writer = MetadataWriter(metadata)
 	metadata_writer(seq_outdir)
-	writer = NPZSequenceWriter(seq_outdir, batch_size * 1024 * 1024)
+	writer = NPZSequenceWriter(seq_outdir, batch_memory * 1024 * 1024)
 	for infile in infiles:
 		for x, y in read_file(infile, max_length, sampling_rate):
 			writer(infile, np.asarray(x), np.asarray(y))
