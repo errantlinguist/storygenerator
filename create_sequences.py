@@ -39,7 +39,8 @@ class MetadataWriter(object):
 		print("Writing sequence metadata to \"{}\".".format(outpath))
 		sorted_items = sorted(self.metadata.items(), key=lambda item: item[0])
 		with open(outpath, 'w') as outf:
-			writer = csv.writer(outf, dialect=self.OUTPUT_CSV_DIALECT)
+			# https://stackoverflow.com/a/3191811/1391325
+			writer = csv.writer(outf, dialect=self.OUTPUT_CSV_DIALECT, lineterminator='\n')
 			for key, value in sorted_items:
 				writer.writerow((key, value))
 
