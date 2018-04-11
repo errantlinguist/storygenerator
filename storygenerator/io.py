@@ -71,7 +71,7 @@ class MatchingFileWalker(object):
     def __init__(self, matcher: Callable[[str], bool]):
         self.matcher = matcher
 
-    def __call__(self, inpaths: Iterable[str]) -> Iterator[str]:
+    def __call__(self, *inpaths: Iterable[str]) -> Iterator[str]:
         for inpath in inpaths:
             if os.path.isdir(inpath):
                 for root, _, files in os.walk(inpath, followlinks=True):
