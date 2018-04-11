@@ -6,9 +6,10 @@ __author__ = "Todd Shore <errantlinguist+github@gmail.com>"
 __copyright__ = "Copyright (C) 2018 Todd Shore"
 __license__ = "Apache License, Version 2.0"
 
+import csv
 import os
 import re
-from typing import Callable, Iterator, List, Optional, Sequence, Tuple
+from typing import Callable, Iterable, Iterator, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -19,6 +20,9 @@ DEFAULT_PART_NAME_ORDINALITIES = {"PROLOGUE": -1, "CHAPTER": 0, "EPILOGUE": 1}
 ORDERED_CHAPTER_PATTERN = re.compile("^(\w+)\s+(\d+)")
 
 INPUT_FILENAME_PATTERN = re.compile("(\d+)\s+([^.]+)\..+")
+
+VOCAB_FILE_NAME = "vocab.tsv"
+VOCAB_FILE_CSV_DIALECT = csv.excel_tab
 
 
 class FeatureExtractor(object):
@@ -159,3 +163,17 @@ def parse_book_filename(inpath: str) -> Tuple[int, str]:
 	else:
 		raise ValueError("Could not parse filename for path \"{}\".".format(inpath))
 	return ordinality, title
+
+
+def read_vocab(infile: str) -> List[str]:
+	with open(infile, 'r') as inf:
+		reader = csv.reader(inf, dialect=VOCAB_FILE_CSV_DIALECT)
+		return next(reader)
+
+
+def write_vocab(vocab: Iterable[str], outdir: str):
+	vocab_outfile_path = os.path.join(outdir, VOCAB_FILE_NAME)
+	print("Writing vocab to \"{}\".".format(vocab_outfile_path))
+	with open(vocab_outfile_path, 'w') as vocab_outf:
+		vocab_writer = csv.writer(vocab_outf, dialect=VOCAB_FILE_CSV_DIALECT)
+		vocab_writer.writerow(vocab)

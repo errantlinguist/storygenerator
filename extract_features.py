@@ -9,7 +9,6 @@ __copyright__ = "Copyright (C) 2018 Todd Shore"
 __license__ = "Apache License, Version 2.0"
 
 import argparse
-import csv
 import datetime
 import os
 from typing import Iterable, Iterator, Tuple
@@ -21,8 +20,6 @@ import storygenerator.io
 
 INPUT_FILE_SUFFIX = ".txt"
 FEATURE_DIR_NAME = "features"
-VOCAB_FILE_NAME = "vocab.tsv"
-VOCAB_FILE_CSV_DIALECT = csv.excel_tab
 
 
 class NPZFeatureWriter(object):
@@ -66,14 +63,6 @@ def read_books(infiles: Iterable[str]) -> Iterator[Tuple[str, storygenerator.io.
 		yield infile, storygenerator.io.Book(book_ordinality, book_title, chaps)
 
 
-def write_vocab(vocab: Iterable[str], outdir: str):
-	vocab_outfile_path = os.path.join(outdir, VOCAB_FILE_NAME)
-	print("Writing vocab to \"{}\".".format(vocab_outfile_path))
-	with open(vocab_outfile_path, 'w') as vocab_outf:
-		vocab_writer = csv.writer(vocab_outf, dialect=VOCAB_FILE_CSV_DIALECT)
-		vocab_writer.writerow(vocab)
-
-
 def __create_argparser() -> argparse.ArgumentParser:
 	result = argparse.ArgumentParser(
 		description="Extracts features from a given set of text files for use in training a language model.")
@@ -101,7 +90,7 @@ def __main(args):
 		frozenset(char for (_, book) in infile_books for chap in book.chaps for par in chap.pars for char in par))
 	print("Vocab size: {}".format(len(vocab)))
 	os.makedirs(outdir, exist_ok=True)
-	write_vocab(vocab, outdir)
+	storygenerator.io.write_vocab(vocab, outdir)
 
 	feature_dirpath = os.path.join(outdir, FEATURE_DIR_NAME)
 	try:
