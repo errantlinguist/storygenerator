@@ -166,7 +166,7 @@ def __main(args):
 	file_walker = MatchingFileWalker(lambda filepath: filepath.endswith(FEATURE_FILE_SUFFIX))
 	feature_dir = os.path.join(indir, extract_features.FEATURE_DIR_NAME)
 	print("Reading feature files under \"{}\".".format(feature_dir))
-	infiles = tuple(file_walker(feature_dir))
+	infiles = tuple(frozenset(file_walker(feature_dir)))
 	print("Found {} feature file(s).".format(len(infiles)))
 	seq_outdir = os.path.join(outdir, SEQUENCE_DIR_NAME)
 	os.makedirs(seq_outdir, exist_ok=True)

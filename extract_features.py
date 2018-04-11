@@ -82,7 +82,7 @@ def __main(args):
 
 	inpaths = args.inpaths
 	print("Looking for input text files underneath {}.".format(inpaths))
-	infiles = file_walker(inpaths)
+	infiles = frozenset(file_walker(inpaths))
 	infile_books = tuple(read_books(infiles))
 	print("Read {} book(s).".format(len(infile_books)))
 
