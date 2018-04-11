@@ -12,7 +12,7 @@ import argparse
 import csv
 import math
 import os
-from typing import Any, Dict, Iterator, List, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import numpy as np
 
@@ -47,9 +47,9 @@ class MetadataWriter(object):
 class NPZSequenceWriter(object):
 	OUTPUT_FILE_EXTENSION = ".npz"
 
-	def __init__(self, outdir: str, batch_size: int):
+	def __init__(self, outdir: str, batch_memory):
 		self.outdir = outdir
-		self.batch_size = float(batch_size)
+		self.batch_memory = positive_float(batch_memory, "Batch memory value")
 
 	def __call__(self, infile: str, x: np.array, y: np.array):
 		# Don't touch this: The shape of the two arrays is likely different in dimensionality
@@ -60,7 +60,7 @@ class NPZSequenceWriter(object):
 
 		total_size = x.nbytes + y.nbytes
 		# print("Total size in MB: {}".format(total_size / 1024 / 1024))
-		batch_count = max(1, int(math.ceil(total_size / self.batch_size)))
+		batch_count = max(1, int(math.ceil(total_size / self.batch_memory)))
 		print("Splitting data from \"{}\" into {} batch(es).".format(infile, batch_count))
 		rows_per_batch = math.ceil(x.shape[0] / batch_count)
 		remaining_row_count = x.shape[0]
@@ -96,6 +96,21 @@ def create_sequences(features: np.array, max_length: int, sampling_rate: int) ->
 	return obs_seqs, next_chars
 
 
+def positive_float(string: str, value_desc: Optional[str] = "Value") -> float:
+	"""
+
+	:param string: The string to parse.
+	:param value_desc A description of the value to use for exception messages.
+	:return: A positive, non-NaN value.
+	"""
+	value = float(string)
+	if math.isnan(value):
+		raise ValueError("{} must not be NaN.".format(value_desc))
+	elif value <= 0.0:
+		raise ValueError("{} must be positive.".format(value_desc))
+	return value
+
+
 def read_file(infile_path: str, max_length: int, sampling_rate: int) -> Iterator[Tuple[List[np.array], List[np.array]]]:
 	print("Loading data from \"{}\".".format(infile_path))
 	with np.load(infile_path) as archive:
@@ -110,27 +125,27 @@ def __create_argparser() -> argparse.ArgumentParser:
 	result.add_argument("indir", metavar="INDIR",
 						help="The directory containing the vocabulary and feature data to read.")
 	result.add_argument("outdir", metavar="OUTDIR", help="The directory to write sequence files under.")
-	result.add_argument("-l", "--max-length", dest="max_length", metavar="LENGTH", type=int, default=DEFAULT_MAX_LENGTH,
+	result.add_argument("-l", "--max-length", dest="max_length", metavar="LENGTH", type=__positive_int,
+						default=DEFAULT_MAX_LENGTH,
 						help="The maximum sequence length to create.")
-	result.add_argument("-s", "--sampling-rate", dest="sampling_rate", metavar="RATE", type=int,
+	result.add_argument("-s", "--sampling-rate", dest="sampling_rate", metavar="RATE", type=__positive_int,
 						default=DEFAULT_SAMPLING_RATE,
 						help="The sequence sampling rate to use.")
-	result.add_argument("-m", "--memory", metavar="MBYTES", type=__positive_float, default=DEFAULT_BATCH_MEMORY,
+	result.add_argument("-m", "--memory", metavar="MBYTES", type=float, default=DEFAULT_BATCH_MEMORY,
 						help="The maximum size of a sequence training batch in megabytes.")
 	return result
 
 
-def __positive_float(string: str) -> float:
+def __positive_int(string: str, value_desc: Optional[str] = "Value") -> int:
 	"""
 	See https://stackoverflow.com/a/8107776/1391325
 	:param string: The string to parse.
-	:return: A positive, non-NaN value.
+	:param value_desc A description of the value to use for exception messages.
+	:return: A positive integer value.
 	"""
-	value = float(string)
-	if math.isnan(value):
-		raise argparse.ArgumentTypeError('Value must not be NaN.')
-	elif value <= 0.0:
-		raise argparse.ArgumentTypeError('Value must be positive.')
+	value = int(string)
+	if value <= 0:
+		raise argparse.ArgumentTypeError("{} must be positive.".format(value_desc))
 	return value
 
 
