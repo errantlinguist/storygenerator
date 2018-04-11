@@ -12,7 +12,7 @@ import argparse
 import csv
 import math
 import os
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Iterator, List, Tuple
 
 import numpy as np
 
@@ -96,17 +96,12 @@ def create_sequences(features: np.array, max_length: int, sampling_rate: int) ->
 	return obs_seqs, next_chars
 
 
-def read_file(infile_path: str, max_length: int, sampling_rate: int) -> Tuple[List[np.array], List[np.array]]:
+def read_file(infile_path: str, max_length: int, sampling_rate: int) -> Iterator[Tuple[List[np.array], List[np.array]]]:
 	print("Loading data from \"{}\".".format(infile_path))
-	x = []
-	y = []
 	with np.load(infile_path) as archive:
 		for (_, arr) in archive.iteritems():
 			obs_seqs, next_chars = create_sequences(arr, max_length, sampling_rate)
-			x.extend(obs_seqs)
-			y.extend(next_chars)
-
-	return x, y
+			yield obs_seqs, next_chars
 
 
 def __create_argparser() -> argparse.ArgumentParser:
@@ -148,8 +143,8 @@ def __main(args):
 	metadata_writer(seq_outdir)
 	writer = NPZSequenceWriter(seq_outdir, batch_size * 1024 * 1024)
 	for infile in infiles:
-		x, y = read_file(infile, max_length, sampling_rate)
-		writer(infile, np.asarray(x), np.asarray(y))
+		for x, y in read_file(infile, max_length, sampling_rate):
+			writer(infile, np.asarray(x), np.asarray(y))
 
 
 if __name__ == "__main__":
