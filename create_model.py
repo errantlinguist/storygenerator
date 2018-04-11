@@ -140,37 +140,67 @@ def __create_argparser() -> argparse.ArgumentParser:
 
 def __train_generator(model: Sequential, seq_files: Sequence[str],
 					  file_reader: Callable[[str], Tuple[np.array, np.array]], epochs: int,
-					  model_checkpoint_outdir: str):
-	filepath = os.path.join(model_checkpoint_outdir, MODEL_CHECKPOINT_FILENAME_FORMAT)
+					  outdir: str):
+	training_terminator = keras.callbacks.TerminateOnNaN()
+
+	model_checkpoint_outdir = os.path.join(outdir, MODEL_CHECKPOINT_DIR_NAME)
+	print("Will save model checkpoints to \"{}\".".format(model_checkpoint_outdir))
+	os.makedirs(model_checkpoint_outdir, exist_ok=True)
+
+	logfile_path = os.path.join(outdir, "training-log.tsv")
+	csv_logger = keras.callbacks.CSVLogger(logfile_path, separator='\t')
+	reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='loss', factor=0.2, min_lr=0.001, verbose=1)
+
+	model_filepath = os.path.join(model_checkpoint_outdir, MODEL_CHECKPOINT_FILENAME_FORMAT)
 	# define the checkpoint
-	checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True)
-	callbacks_list = [checkpoint]
+	checkpoint = ModelCheckpoint(model_filepath, monitor='loss', verbose=1, save_best_only=True)
+	callbacks = [training_terminator, csv_logger, reduce_lr, checkpoint]
 	data_generator = FileLoadingDataGenerator(seq_files, file_reader)
 	# workers = max(multiprocessing.cpu_count() // 2, 1)
 	workers = 1
 	max_queue_size = 1
 	print("Using {} worker thread(s) with a max queue size of {}.".format(workers, max_queue_size))
-	training_history = model.fit_generator(data_generator, epochs=epochs, verbose=1, use_multiprocessing=False,
-										   workers=workers, max_queue_size=max_queue_size,
-										   callbacks=callbacks_list)
+	history = model.fit_generator(data_generator, epochs=epochs, verbose=1, use_multiprocessing=False,
+								  workers=workers, max_queue_size=max_queue_size,
+								  callbacks=callbacks)
 
 
 def __train_iteratively(model: Sequential, seq_files: Sequence[str],
 						file_reader: Callable[[str], Tuple[np.array, np.array]], epochs: int,
-						model_checkpoint_outdir: str):
-	filepath = os.path.join(model_checkpoint_outdir, MODEL_CHECKPOINT_FILENAME_FORMAT)
+						outdir: str):
+	training_terminator = keras.callbacks.TerminateOnNaN()
+
+	model_checkpoint_outdir = os.path.join(outdir, MODEL_CHECKPOINT_DIR_NAME)
+	print("Will save model checkpoints to \"{}\".".format(model_checkpoint_outdir))
+	os.makedirs(model_checkpoint_outdir, exist_ok=True)
+
+	logfile_path = os.path.join(outdir, "training-log.tsv")
+	csv_logger = keras.callbacks.CSVLogger(logfile_path, separator='\t')
+	reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='loss', factor=0.2, min_lr=0.001, verbose=1)
+
+	model_filepath = os.path.join(model_checkpoint_outdir, MODEL_CHECKPOINT_FILENAME_FORMAT)
 	seq_files = list(seq_files)
-	batch_epochs = len(seq_files)
+	batches_per_epoch = len(seq_files)
 	# define the checkpoint
-	checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1, save_best_only=True, period=batch_epochs)
-	callbacks_list = [checkpoint]
+	checkpoint = ModelCheckpoint(model_filepath, monitor="loss", verbose=1, save_best_only=True,
+								 period=batches_per_epoch)
+	callbacks = [training_terminator, csv_logger, reduce_lr, checkpoint]
 	for epoch_id in range(0, epochs):
-		batch_start = epoch_id * batch_epochs
+		batch_start = epoch_id * batches_per_epoch
 		for seq_file_idx, seq_file in enumerate(seq_files):
-			batch_epoch_id = batch_start + seq_file_idx
+			epoch_batch_id = batch_start + seq_file_idx
 			x, y = file_reader(seq_file)
-			training_history = model.fit(x, y, initial_epoch=batch_epoch_id, epochs=batch_epoch_id + 1,
-										 callbacks=callbacks_list)
+			history = model.fit(x, y, initial_epoch=epoch_batch_id, epochs=epoch_batch_id + 1,
+								callbacks=callbacks)
+			loss = history.history["loss"]
+			if np.isnan(loss) or np.isinf(loss):
+				print('Epoch %d, epoch batch %d: Invalid loss, terminating training' % (epoch_id, epoch_batch_id))
+				training_terminator.model.stop_training = True
+				break
+
+		if training_terminator.model.stop_training:
+			break
+
 		random.shuffle(seq_files)
 
 
@@ -200,10 +230,6 @@ def __main(args):
 	seq_files = tuple(file_walker(seq_dir))
 	print("Found {} sequence file(s).".format(len(seq_files)))
 
-	model_checkpoint_outdir = os.path.join(outdir, MODEL_CHECKPOINT_DIR_NAME)
-	print("Will save model checkpoints to \"{}\".".format(model_checkpoint_outdir))
-	os.makedirs(model_checkpoint_outdir, exist_ok=True)
-
 	max_length = int(seq_metadata["max_length"])
 	feature_count = FeatureExtractor.feature_count(vocab)
 	# https://stackoverflow.com/a/43472000/1391325
@@ -226,8 +252,8 @@ def __main(args):
 		with tempfile.TemporaryDirectory() as tmpdir_path:
 			print("Will cache array data to \"{}\".".format(tmpdir_path))
 			file_reader = CachingFileReader(tmpdir_path)
-			# __train_generator(model, seq_files, file_reader, epochs, model_checkpoint_outdir)
-			__train_iteratively(model, seq_files, file_reader, epochs, model_checkpoint_outdir)
+			# __train_generator(model, seq_files, file_reader, epochs, outdir)
+			__train_iteratively(model, seq_files, file_reader, epochs, outdir)
 
 
 if __name__ == "__main__":
