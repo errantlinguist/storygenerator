@@ -1,4 +1,5 @@
 keras
+h5py
 nltk
 numpy
 tzlocal
