@@ -100,6 +100,9 @@ def read_file(infile_path: str) -> Tuple[np.array, np.array]:
 		# Don't touch this: The shape of the two arrays is likely different in dimensionality
 		assert x.shape[0] == y.shape[0]
 		assert x.shape[-1] == y.shape[-1]
+
+		assert np.isfinite(x).all()
+		assert np.isfinite(y).all()
 		return x, y
 
 
