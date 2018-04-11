@@ -60,7 +60,10 @@ class NPZSequenceWriter(object):
 
 		total_size = x.nbytes + y.nbytes
 		# print("Total size in MB: {}".format(total_size / 1024 / 1024))
-		batch_count = max(1, int(math.ceil(total_size / self.batch_size)))
+		try:
+			batch_count = max(1, int(math.ceil(total_size / self.batch_size)))
+		except ZeroDivisionError:
+			batch_count = 1
 		print("Splitting data from \"{}\" into {} batch(es).".format(infile, batch_count))
 		rows_per_batch = math.ceil(x.shape[0] / batch_count)
 		remaining_row_count = x.shape[0]
